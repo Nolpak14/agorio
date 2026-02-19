@@ -1,6 +1,6 @@
 {
   "name": "@agorio/sdk",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "The open-source toolkit for building AI commerce agents using UCP and ACP protocols",
   "type": "module",
   "main": "dist/index.js",
