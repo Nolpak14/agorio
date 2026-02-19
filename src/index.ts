@@ -29,8 +29,9 @@
  * ```
  */
 
-// Core client
+// Core clients
 export { UcpClient, UcpDiscoveryError, UcpApiError } from './client/ucp-client.js';
+export { AcpClient, AcpApiError } from './client/acp-client.js';
 
 // LLM adapters
 export { GeminiAdapter } from './llm/gemini.js';
@@ -46,8 +47,9 @@ export { ShoppingAgent } from './agent/shopping-agent.js';
 // Tools
 export { SHOPPING_AGENT_TOOLS } from './llm/tools.js';
 
-// Mock server
+// Mock servers
 export { MockMerchant } from './mock/mock-merchant.js';
+export { MockAcpMerchant } from './mock/mock-acp-merchant.js';
 export { DEFAULT_PRODUCTS, buildMockProfile } from './mock/fixtures.js';
 
 // Types
@@ -61,6 +63,15 @@ export type {
   A2aTransport,
   PaymentHandler,
   JwkKey,
+
+  // ACP types
+  AcpClientOptions,
+  AcpCheckoutSession,
+  AcpCheckoutStatus,
+  AcpLineItem,
+  AcpMoney,
+  AcpShippingAddress,
+  MockAcpMerchantOptions,
 
   // Client types
   UcpClientOptions,
