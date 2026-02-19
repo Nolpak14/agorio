@@ -37,6 +37,8 @@ export { GeminiAdapter } from './llm/gemini.js';
 export type { GeminiAdapterOptions } from './llm/gemini.js';
 export { ClaudeAdapter } from './llm/claude.js';
 export type { ClaudeAdapterOptions } from './llm/claude.js';
+export { OpenAIAdapter } from './llm/openai.js';
+export type { OpenAIAdapterOptions } from './llm/openai.js';
 
 // Agent
 export { ShoppingAgent } from './agent/shopping-agent.js';
