@@ -1,8 +1,8 @@
 const comparisons = [
   {
-    capability: 'UCP merchant discovery',
-    scratch: 'Parse /.well-known/ucp yourself, handle both capability formats, normalize services',
-    agorio: 'client.discover("shop.example.com")',
+    capability: 'Merchant discovery',
+    scratch: 'Parse /.well-known/ucp yourself, handle ACP endpoints separately, detect protocol',
+    agorio: 'Auto-detects UCP or ACP per merchant',
   },
   {
     capability: 'Product search',
@@ -22,7 +22,7 @@ const comparisons = [
   {
     capability: 'Testing',
     scratch: 'Stand up your own mock server, write fixtures',
-    agorio: 'new MockMerchant() — full UCP server',
+    agorio: 'MockMerchant (UCP) + MockAcpMerchant (ACP)',
   },
   {
     capability: 'Agent orchestration',
@@ -37,21 +37,21 @@ export default function WhyAgorio() {
       <h2 className="text-3xl font-bold text-center mb-4">
         Why Agorio
       </h2>
-      <p className="text-center text-[var(--muted)] mb-12 max-w-2xl mx-auto">
+      <p className="text-center text-(--muted) mb-12 max-w-2xl mx-auto">
         Stop rebuilding commerce plumbing. Focus on what makes your agent unique.
       </p>
 
       <div className="overflow-x-auto">
         <table className="w-full text-sm border-collapse">
           <thead>
-            <tr className="border-b border-[var(--border)]">
-              <th className="text-left py-3 px-4 text-[var(--muted)] font-medium">
+            <tr className="border-b border-(--border)">
+              <th className="text-left py-3 px-4 text-(--muted) font-medium">
                 Capability
               </th>
-              <th className="text-left py-3 px-4 text-[var(--muted)] font-medium">
+              <th className="text-left py-3 px-4 text-(--muted) font-medium">
                 Building from Scratch
               </th>
-              <th className="text-left py-3 px-4 text-[var(--accent)] font-medium">
+              <th className="text-left py-3 px-4 text-(--accent) font-medium">
                 With Agorio
               </th>
             </tr>
@@ -60,12 +60,12 @@ export default function WhyAgorio() {
             {comparisons.map((row) => (
               <tr
                 key={row.capability}
-                className="border-b border-[var(--border)] hover:bg-[var(--card)] transition-colors"
+                className="border-b border-(--border) hover:bg-(--card) transition-colors"
               >
                 <td className="py-3 px-4 font-medium">{row.capability}</td>
-                <td className="py-3 px-4 text-[var(--muted)]">{row.scratch}</td>
+                <td className="py-3 px-4 text-(--muted)">{row.scratch}</td>
                 <td className="py-3 px-4">
-                  <code className="text-[var(--accent)] bg-[var(--code-bg)] px-1.5 py-0.5 rounded text-xs">
+                  <code className="text-(--accent) bg-(--code-bg) px-1.5 py-0.5 rounded text-xs">
                     {row.agorio}
                   </code>
                 </td>

@@ -26,7 +26,12 @@ const agent = new ShoppingAgent({
   llm: new GeminiAdapter({ apiKey: process.env.GEMINI_API_KEY }),
   // llm: new ClaudeAdapter({ apiKey: process.env.ANTHROPIC_API_KEY }),
   // llm: new OpenAIAdapter({ apiKey: process.env.OPENAI_API_KEY }),
-});`;
+});
+
+// Stream results in real time
+for await (const event of agent.runStream("Buy headphones")) {
+  if (event.type === 'text_delta') process.stdout.write(event.text);
+}`;
 
 export default function Adapters() {
   return (
@@ -35,7 +40,7 @@ export default function Adapters() {
         Works with any LLM
       </h2>
       <p className="text-center text-[var(--muted)] mb-12 max-w-2xl mx-auto">
-        Three adapters ship out of the box. Implement the{' '}
+        Three adapters ship out of the box — all with streaming support. Implement the{' '}
         <code className="text-[var(--accent)] bg-[var(--code-bg)] px-1.5 py-0.5 rounded text-xs">
           LlmAdapter
         </code>{' '}

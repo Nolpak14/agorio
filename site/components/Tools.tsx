@@ -1,5 +1,5 @@
 const tools = [
-  { name: 'discover_merchant', desc: 'Fetch and parse a UCP profile by domain', icon: '🔍' },
+  { name: 'discover_merchant', desc: 'Auto-detect UCP or ACP merchant by domain', icon: '🔍' },
   { name: 'list_capabilities', desc: 'List what the merchant supports', icon: '📋' },
   { name: 'browse_products', desc: 'Paginated catalog with filtering', icon: '🛒' },
   { name: 'search_products', desc: 'Keyword search across products', icon: '🔎' },
@@ -20,8 +20,8 @@ export default function Tools() {
         12 Built-in Shopping Tools
       </h2>
       <p className="text-center text-[var(--muted)] mb-12 max-w-2xl mx-auto">
-        Every tool the agent needs for the full UCP shopping workflow — from
-        discovery to order tracking.
+        Every tool the agent needs for the full shopping workflow — UCP and ACP,
+        from discovery to order tracking.
       </p>
 
       <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
