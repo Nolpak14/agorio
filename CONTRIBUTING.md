@@ -1,47 +1,32 @@
 # Contributing to Agorio
 
-Thank you for your interest in contributing to Agorio. This document covers everything you need to get started.
+Thanks for your interest in contributing to Agorio! This guide covers everything you need to get started.
 
 ## Development Setup
 
 ### Prerequisites
 
-- Node.js 20 or later
-- npm 10 or later
-- A code editor with TypeScript support
+- Node.js 20+
+- npm 10+
 
 ### Getting Started
 
-1. Fork the repository and clone your fork:
-
 ```bash
-git clone https://github.com/YOUR_USERNAME/agorio.git
+git clone https://github.com/Nolpak14/agorio.git
 cd agorio
-```
-
-2. Install dependencies:
-
-```bash
 npm install
-```
-
-3. Run the tests to make sure everything works:
-
-```bash
+npm run build
 npm test
 ```
 
-4. Build the project:
+### Commands
 
-```bash
-npm run build
-```
-
-5. Run the type checker:
-
-```bash
-npm run typecheck
-```
+| Command | Description |
+|---------|-------------|
+| `npm run build` | TypeScript compilation (`tsc`) |
+| `npm test` | Run all 113 tests (Vitest) |
+| `npm run test:watch` | Run tests in watch mode |
+| `npm run typecheck` | Type check without emitting (`tsc --noEmit`) |
 
 ## Project Structure
 
@@ -49,114 +34,193 @@ npm run typecheck
 src/
   index.ts                    # Public API exports
   types/index.ts              # All TypeScript types
-  client/ucp-client.ts        # UCP discovery + REST client
+  client/
+    ucp-client.ts             # UCP discovery + REST client
+    acp-client.ts             # ACP checkout session client
   llm/
     gemini.ts                 # Google Gemini adapter
-    tools.ts                  # Shopping tool definitions
-  agent/shopping-agent.ts     # Agent orchestrator
+    claude.ts                 # Anthropic Claude adapter
+    openai.ts                 # OpenAI GPT adapter
+    tools.ts                  # 12 shopping tool definitions (JSON Schema)
+    types.ts                  # LLM adapter interface
+  agent/
+    shopping-agent.ts         # Plan-act-observe loop (dual UCP/ACP)
   mock/
-    mock-merchant.ts          # UCP-compliant test server
-    fixtures.ts               # Product catalog + profile builder
+    mock-merchant.ts          # UCP-compliant Express test server
+    mock-acp-merchant.ts      # ACP-compliant Express test server
+    fixtures.ts               # Product catalog + UCP profile builder
 tests/
-  ucp-client.test.ts
-  mock-merchant.test.ts
-  shopping-agent.test.ts
+  ucp-client.test.ts          # UCP client tests
+  acp-client.test.ts          # ACP client + MockAcpMerchant tests
+  acp-agent.test.ts           # Agent with ACP protocol tests
+  mock-merchant.test.ts       # UCP mock merchant tests
+  shopping-agent.test.ts      # Agent orchestration tests
+  streaming.test.ts           # Streaming support tests
+  claude-adapter.test.ts      # Claude adapter tests
+  openai-adapter.test.ts      # OpenAI adapter tests
 ```
 
-## Making Changes
+## How to Add a New LLM Adapter
 
-### Branch Naming
+The `LlmAdapter` interface is the key abstraction. Any LLM with function calling can be integrated.
 
-- `feature/description` -- new features
-- `fix/description` -- bug fixes
-- `docs/description` -- documentation updates
-- `refactor/description` -- code improvements without behavior changes
+### 1. Create the adapter file
 
-### Code Style
+Create `src/llm/your-provider.ts`:
 
-- TypeScript strict mode is enabled
-- Use ES modules (`import`/`export`, not `require`)
-- Use `interface` for public API types, `type` for internal unions and intersections
-- Add JSDoc comments to all exported functions, classes, and interfaces
-- Keep functions focused -- prefer small functions over large ones
+```typescript
+import type {
+  LlmAdapter,
+  ChatMessage,
+  ToolDefinition,
+  LlmResponse,
+  LlmStreamChunk,
+} from '../types/index.js';
 
-### Writing Tests
+export interface YourAdapterOptions {
+  apiKey: string;
+  model?: string;
+  temperature?: number;
+}
 
-Every change should include tests. We use [Vitest](https://vitest.dev/).
+export class YourAdapter implements LlmAdapter {
+  readonly modelName: string;
 
-```bash
-# Run all tests
-npm test
+  constructor(options: YourAdapterOptions) {
+    this.modelName = options.model ?? 'default-model';
+    // Initialize your SDK client here
+  }
 
-# Run tests in watch mode
-npm test -- --watch
+  async chat(
+    messages: ChatMessage[],
+    tools?: ToolDefinition[],
+  ): Promise<LlmResponse> {
+    // 1. Convert ChatMessage[] to your provider's message format
+    // 2. Convert ToolDefinition[] to your provider's function calling format
+    // 3. Make the API call
+    // 4. Convert the response back to LlmResponse
+  }
 
-# Run a specific test file
-npm test -- tests/ucp-client.test.ts
-
-# Run with coverage
-npm test -- --coverage
+  async *chatStream(
+    messages: ChatMessage[],
+    tools?: ToolDefinition[],
+  ): AsyncIterable<LlmStreamChunk> {
+    // Same conversion as chat(), but yield LlmStreamChunk events
+    // as they arrive from the provider's streaming API
+  }
+}
 ```
 
-When adding a new LLM adapter:
-- Add unit tests that mock the provider's API
-- Test function calling conversion (JSON Schema to provider format)
-- Test error handling (rate limits, invalid responses, timeouts)
+### 2. Key types to understand
 
-When adding a new shopping tool:
-- Add the tool definition to `src/llm/tools.ts`
-- Add the execution handler to `src/agent/shopping-agent.ts`
-- Add the corresponding mock endpoint to `src/mock/mock-merchant.ts`
-- Write tests for all three layers
+```typescript
+// Input: messages use a role-based format
+interface ChatMessage {
+  role: 'system' | 'user' | 'assistant' | 'tool';
+  content: string;
+  toolCallId?: string;    // For tool result messages
+  toolCalls?: ToolCall[];  // For assistant messages with tool calls
+}
 
-### Type Checking
+// Input: tools are JSON Schema definitions
+interface ToolDefinition {
+  name: string;
+  description: string;
+  parameters: Record<string, unknown>; // JSON Schema object
+}
 
-Always run the type checker before submitting:
+// Output: the response from the LLM
+interface LlmResponse {
+  content: string;
+  toolCalls: ToolCall[];
+  finishReason: 'stop' | 'tool_calls' | 'length' | 'error';
+}
 
-```bash
-npm run typecheck
+// Output: streaming chunks (discriminated union)
+type LlmStreamChunk =
+  | { type: 'text_delta'; text: string }
+  | { type: 'tool_call_start'; id: string; name: string }
+  | { type: 'tool_call_delta'; id: string; argumentsDelta: string }
+  | { type: 'tool_call_complete'; id: string; name: string; arguments: Record<string, unknown> }
+  | { type: 'done'; response: LlmResponse };
 ```
 
-This command can take 1-3 minutes. Wait for it to complete -- no output means it is still running.
+### 3. Important: toolCallId mapping
 
-## Submitting a Pull Request
+The `ShoppingAgent` sets `toolCallId` to the tool name (not the call ID from the LLM). Your adapter needs to handle this mapping when converting tool result messages back to provider format. See the existing adapters for reference -- they use a queue-based approach to resolve `name -> ID`.
 
-1. Create a branch from `main`
-2. Make your changes with tests
-3. Run `npm test` and `npm run typecheck` -- both must pass
-4. Write a clear commit message describing what changed and why
-5. Push your branch and open a pull request
-6. Fill out the PR template with a summary, test plan, and any breaking changes
+### 4. Export from index.ts
 
-### PR Review Process
+Add your adapter and its options type to `src/index.ts`:
 
-- All PRs require at least one approving review
-- CI must pass (tests + type checking)
-- Keep PRs focused -- one feature or fix per PR
+```typescript
+export { YourAdapter } from './llm/your-provider.js';
+export type { YourAdapterOptions } from './llm/your-provider.js';
+```
 
-## Areas Where Help is Needed
+### 5. Write tests
 
-Here are the most impactful areas for contribution:
+Create `tests/your-adapter.test.ts`. Mock the HTTP layer -- never make real API calls in tests. See `tests/claude-adapter.test.ts` for the pattern: it mocks the SDK client and tests message conversion, tool calling, streaming, and error handling.
 
-### LLM Adapters
-New adapters for Claude (Anthropic), OpenAI, and Ollama. Each adapter implements the `LlmAdapter` interface from `src/types/index.ts`. See `src/llm/gemini.ts` for a reference implementation.
+## How to Add a New Shopping Tool
 
-### Shopping Tools
-New tools that extend the agent's capabilities: wishlists, product reviews, returns, price alerts, coupon/discount application, inventory notifications.
+### 1. Add the tool definition
 
-### Reference Agents
-Example agents built on top of the SDK that demonstrate real use cases: price comparison across merchants, product research assistant, deal finder, gift recommendation engine.
+In `src/llm/tools.ts`, add to the `SHOPPING_AGENT_TOOLS` array:
 
-### Documentation
-Tutorials, how-to guides, and examples. Especially useful: "Build your first shopping agent" tutorial, "Write a custom LLM adapter" guide, integration examples with popular frameworks.
+```typescript
+{
+  name: 'your_tool_name',
+  description: 'What this tool does (the LLM reads this to decide when to call it)',
+  parameters: {
+    type: 'object',
+    properties: {
+      param1: { type: 'string', description: 'Description for the LLM' },
+    },
+    required: ['param1'],
+  },
+}
+```
 
-### Bug Reports
-File issues with clear reproduction steps. Edge cases in UCP profile parsing, timeout handling, and function calling conversion are especially valuable.
+### 2. Add the handler
 
-## Code of Conduct
+In `src/agent/shopping-agent.ts`, add a case in the `executeTool` method:
 
-Be respectful, constructive, and inclusive. We are building tools for developers -- keep discussions technical and focused on improving the project.
+```typescript
+case 'your_tool_name':
+  return this.toolYourToolName(args as { param1: string });
+```
+
+Then implement the handler method on the `ShoppingAgent` class.
+
+### 3. Write tests
+
+Add test cases in `tests/shopping-agent.test.ts` using the `ScriptedLlm` mock -- script the LLM to call your tool and verify the output.
+
+## Pull Request Process
+
+1. **Fork and branch** -- Create a branch from `main` (`feature/`, `fix/`, `docs/`)
+2. **Make changes** -- Keep commits focused and atomic
+3. **Run all checks** -- `npm run build && npm test && npm run typecheck`
+4. **Write tests** -- New features need tests. Bug fixes need regression tests.
+5. **Open a PR** -- Describe what changed and why. Link related issues.
+
+### Conventions
+
+- **TypeScript** -- Strict mode, ES2022 target, ESM modules
+- **Imports** -- Use `.js` extensions in import paths (ESM requirement)
+- **Types** -- All types live in `src/types/index.ts`
+- **Tests** -- Vitest, no real API calls (mock everything)
+- **Naming** -- PascalCase for classes/types, camelCase for functions/variables, snake_case for tool names
+
+## Areas Where Contributions Are Valuable
+
+- **LLM adapters** -- Ollama, Mistral, Cohere, or any provider with function calling
+- **Shopping tools** -- Wishlists, reviews, returns, price alerts, inventory checks
+- **Reference agents** -- Example agents demonstrating real-world use cases
+- **Bug fixes** -- Especially around UCP profile parsing and ACP checkout edge cases
+- **Documentation** -- Tutorials, guides, API examples
 
 ## Questions?
 
-Open a [Discussion](https://github.com/agorio/agorio/discussions) on GitHub. For bug reports, use [Issues](https://github.com/agorio/agorio/issues).
+Open a [GitHub Discussion](https://github.com/Nolpak14/agorio/discussions) or comment on the relevant issue.
