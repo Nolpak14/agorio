@@ -1,0 +1,59 @@
+{
+  "name": "@ucptools/agent-sdk",
+  "version": "0.1.0",
+  "description": "SDK for building AI shopping agents that interact with UCP-enabled merchants",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./mock": {
+      "types": "./dist/mock/mock-merchant.d.ts",
+      "import": "./dist/mock/mock-merchant.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest",
+    "typecheck": "tsc --noEmit --pretty"
+  },
+  "keywords": [
+    "ucp",
+    "shopping-agent",
+    "ai-agent",
+    "agentic-commerce",
+    "gemini",
+    "universal-commerce-protocol"
+  ],
+  "license": "MIT",
+  "author": "UCPtools",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/nicobailon/ucp-tools",
+    "directory": "packages/agent-sdk"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "dependencies": {
+    "@google/generative-ai": "^0.24.0"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.9.0",
+    "express": "^4.21.0",
+    "typescript": "^5.6.3",
+    "vitest": "^4.0.17"
+  },
+  "peerDependencies": {
+    "express": "^4.21.0"
+  },
+  "peerDependenciesMeta": {
+    "express": {
+      "optional": true
+    }
+  }
+}
