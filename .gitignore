@@ -1,7 +1,46 @@
+# Dependencies
 node_modules/
+
+# Build output
 dist/
-coverage/
 *.tsbuildinfo
-.DS_Store
+
+# Test coverage
+coverage/
+
+# Environment variables (NEVER commit these)
 .env
 .env.*
+.env.local
+.env.development
+.env.production
+
+# OS files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# IDE / Editor
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Claude Code — entire directory is internal tooling
+.claude/
+
+# Internal docs — strategy, roadmap, plans, competitive intel
+docs/
+
+# CLAUDE.md — project context file (local only, contains internal details)
+CLAUDE.md
+
+# Logs
+*.log
+npm-debug.log*
+
+# Temporary files
+tmp/
+temp/
+*.tmp
