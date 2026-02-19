@@ -8,12 +8,14 @@
  */
 
 import { UcpClient } from '../client/ucp-client.js';
+import { AcpClient } from '../client/acp-client.js';
 import { SHOPPING_AGENT_TOOLS } from '../llm/tools.js';
 import type {
   AgentOptions,
   AgentResult,
   AgentStep,
   AgentStreamEvent,
+  AcpCheckoutSession,
   ChatMessage,
   ToolCall,
   CartItem,
@@ -32,8 +34,13 @@ export class ShoppingAgent {
     Pick<AgentOptions, 'maxIterations' | 'verbose'>
   > & AgentOptions;
   private readonly client: UcpClient;
+  private readonly acpClient: AcpClient | null;
   private readonly steps: AgentStep[] = [];
   private iteration = 0;
+
+  // Protocol state
+  private protocol: 'ucp' | 'acp' | null = null;
+  private acpBaseUrl: string | null = null;
 
   // Shopping state
   private cart: CartItem[] = [];
@@ -48,6 +55,9 @@ export class ShoppingAgent {
       verbose: options.verbose ?? false,
     };
     this.client = new UcpClient(options.clientOptions);
+    this.acpClient = options.acpOptions
+      ? new AcpClient(options.acpOptions)
+      : null;
   }
 
   /**
@@ -335,25 +345,88 @@ export class ShoppingAgent {
   }
 
   private async toolDiscoverMerchant(domain: string) {
-    const discovery = await this.client.discover(domain);
-    return {
-      domain: discovery.domain,
-      version: discovery.version,
-      capabilities: discovery.capabilities.map(c => c.name),
-      services: discovery.services.map(s => ({
-        name: s.name,
-        transports: Object.keys(s.transports).filter(
-          t => s.transports[t as keyof typeof s.transports]
-        ),
-      })),
-      paymentHandlers: discovery.paymentHandlers.map(h => ({
-        id: h.id,
-        name: h.name,
-      })),
-    };
+    // Try UCP discovery first
+    try {
+      const discovery = await this.client.discover(domain);
+      this.protocol = 'ucp';
+      this.log(`[Discovery] UCP protocol detected for ${domain}`);
+      return {
+        domain: discovery.domain,
+        protocol: 'ucp',
+        version: discovery.version,
+        capabilities: discovery.capabilities.map(c => c.name),
+        services: discovery.services.map(s => ({
+          name: s.name,
+          transports: Object.keys(s.transports).filter(
+            t => s.transports[t as keyof typeof s.transports]
+          ),
+        })),
+        paymentHandlers: discovery.paymentHandlers.map(h => ({
+          id: h.id,
+          name: h.name,
+        })),
+      };
+    } catch {
+      // UCP discovery failed — try ACP if configured
+    }
+
+    if (this.acpClient) {
+      // Derive product base URL from ACP endpoint or domain
+      const acpEndpoint = this.acpClient.getEndpoint();
+      this.acpBaseUrl = acpEndpoint;
+
+      // Verify ACP merchant is reachable by hitting /health or /products
+      try {
+        const fetchFn = this.options.clientOptions?.fetch ?? globalThis.fetch.bind(globalThis);
+        const res = await fetchFn(`${this.acpBaseUrl}/health`);
+        if (res.ok) {
+          this.protocol = 'acp';
+          const info = await res.json() as Record<string, unknown>;
+          this.log(`[Discovery] ACP protocol detected for ${domain}`);
+          return {
+            domain,
+            protocol: 'acp',
+            version: '2026-01-30',
+            capabilities: ['checkout'],
+            merchant: info.merchant ?? domain,
+            paymentHandlers: [{ type: 'stripe_shared_payment_token' }],
+          };
+        }
+      } catch {
+        // ACP health check failed — try products endpoint
+      }
+
+      // Fallback: try product listing to confirm merchant is reachable
+      try {
+        const fetchFn = this.options.clientOptions?.fetch ?? globalThis.fetch.bind(globalThis);
+        const res = await fetchFn(`${this.acpBaseUrl}/products`);
+        if (res.ok) {
+          this.protocol = 'acp';
+          this.log(`[Discovery] ACP protocol detected for ${domain} (via products)`);
+          return {
+            domain,
+            protocol: 'acp',
+            version: '2026-01-30',
+            capabilities: ['checkout'],
+            paymentHandlers: [{ type: 'stripe_shared_payment_token' }],
+          };
+        }
+      } catch {
+        // Both checks failed
+      }
+    }
+
+    return { error: `Could not discover merchant at ${domain}. No UCP profile found and ACP is not configured.` };
   }
 
   private toolListCapabilities() {
+    if (this.protocol === 'acp') {
+      return {
+        capabilities: [
+          { name: 'acp.checkout', version: '2026-01-30' },
+        ],
+      };
+    }
     const caps = this.client.getCapabilities();
     return {
       capabilities: caps.map(c => ({
@@ -364,13 +437,42 @@ export class ShoppingAgent {
     };
   }
 
+  /**
+   * Protocol-agnostic merchant API call.
+   * Routes to UcpClient.callApi() for UCP or direct fetch for ACP.
+   */
+  private async fetchMerchantApi(
+    path: string,
+    options?: { method?: string; body?: unknown }
+  ): Promise<unknown> {
+    if (this.protocol === 'acp' && this.acpBaseUrl) {
+      const url = `${this.acpBaseUrl}${path}`;
+      const method = options?.method ?? (options?.body ? 'POST' : 'GET');
+      const fetchFn = this.options.clientOptions?.fetch ?? globalThis.fetch.bind(globalThis);
+      const response = await fetchFn(url, {
+        method,
+        headers: {
+          Accept: 'application/json',
+          ...(options?.body ? { 'Content-Type': 'application/json' } : {}),
+        },
+        ...(options?.body ? { body: JSON.stringify(options.body) } : {}),
+      });
+      if (!response.ok) {
+        const body = await response.text().catch(() => '');
+        throw new Error(`ACP API: ${method} ${path} → ${response.status}: ${body}`);
+      }
+      return response.json();
+    }
+    return this.client.callApi(path, options);
+  }
+
   private async toolBrowseProducts(args: Record<string, unknown>) {
     const page = (args.page as number) ?? 1;
     const limit = Math.min((args.limit as number) ?? 10, 50);
     const category = args.category as string | undefined;
 
     try {
-      const result = await this.client.callApi('/products', {
+      const result = await this.fetchMerchantApi('/products', {
         method: 'GET',
       });
       let products = ((result as Record<string, unknown>).products ?? result) as MockProduct[];
@@ -406,7 +508,7 @@ export class ShoppingAgent {
     const limit = Math.min((args.limit as number) ?? 10, 50);
 
     try {
-      const result = await this.client.callApi(`/products/search?q=${encodeURIComponent(query)}`);
+      const result = await this.fetchMerchantApi(`/products/search?q=${encodeURIComponent(query)}`);
       const products = ((result as Record<string, unknown>).products ?? result) as MockProduct[];
 
       return {
@@ -423,7 +525,7 @@ export class ShoppingAgent {
     } catch {
       // Fallback: browse all and filter client-side
       try {
-        const result = await this.client.callApi('/products');
+        const result = await this.fetchMerchantApi('/products');
         const all = ((result as Record<string, unknown>).products ?? result) as MockProduct[];
         const filtered = all.filter(p =>
           p.name.toLowerCase().includes(query) ||
@@ -448,7 +550,7 @@ export class ShoppingAgent {
   }
 
   private async toolGetProduct(productId: string) {
-    const result = await this.client.callApi(`/products/${productId}`);
+    const result = await this.fetchMerchantApi(`/products/${productId}`);
     return result;
   }
 
@@ -492,6 +594,36 @@ export class ShoppingAgent {
       return { error: 'Cart is empty. Add items before checking out.' };
     }
 
+    // ACP checkout flow
+    if (this.protocol === 'acp' && this.acpClient) {
+      try {
+        const session = await this.acpClient.createCheckout({
+          line_items: this.cart.map(item => ({
+            product_id: item.productId,
+            quantity: item.quantity,
+          })),
+        });
+        this.checkoutSessionId = session.id;
+
+        return {
+          protocol: 'acp',
+          sessionId: session.id,
+          status: session.status,
+          lineItems: session.line_items,
+          totals: session.totals,
+          paymentHandlers: session.payment_handlers,
+          requiredSteps: session.status === 'not_ready_for_payment'
+            ? ['shipping', 'payment']
+            : ['payment'],
+        };
+      } catch (err) {
+        return {
+          error: `ACP checkout failed: ${err instanceof Error ? err.message : String(err)}`,
+        };
+      }
+    }
+
+    // UCP checkout flow
     if (!this.client.hasCapability('dev.ucp.shopping.checkout')) {
       return { error: 'Merchant does not support checkout capability.' };
     }
@@ -505,6 +637,7 @@ export class ShoppingAgent {
       this.checkoutSessionId = (data.sessionId ?? data.id) as string;
 
       return {
+        protocol: 'ucp',
         sessionId: this.checkoutSessionId,
         items: this.cart,
         subtotal: this.calculateSubtotal(),
@@ -518,12 +651,40 @@ export class ShoppingAgent {
     }
   }
 
-  private toolSubmitShipping(address: ShippingAddress) {
+  private async toolSubmitShipping(address: ShippingAddress) {
     if (!this.checkoutSessionId) {
       return { error: 'No active checkout session. Call initiate_checkout first.' };
     }
 
     this.shippingAddress = address;
+
+    // ACP: update session with shipping address
+    if (this.protocol === 'acp' && this.acpClient) {
+      try {
+        const session = await this.acpClient.updateCheckout(this.checkoutSessionId, {
+          shipping_address: {
+            name: address.name,
+            line1: address.line1,
+            line2: address.line2,
+            city: address.city,
+            state: address.state,
+            postal_code: address.postalCode,
+            country: address.country,
+          },
+        });
+        return {
+          success: true,
+          sessionId: session.id,
+          status: session.status,
+          totals: session.totals,
+          nextStep: 'payment',
+        };
+      } catch (err) {
+        return {
+          error: `ACP shipping update failed: ${err instanceof Error ? err.message : String(err)}`,
+        };
+      }
+    }
 
     return {
       success: true,
@@ -545,6 +706,45 @@ export class ShoppingAgent {
     const paymentMethod = args.paymentMethod as string;
     const paymentToken = args.paymentToken as string | undefined;
 
+    // ACP payment flow
+    if (this.protocol === 'acp' && this.acpClient) {
+      try {
+        const session = await this.acpClient.completeCheckout(this.checkoutSessionId, {
+          payment_token: paymentToken ?? 'tok_mock_success',
+          payment_handler: paymentMethod ?? 'stripe_shared_payment_token',
+        });
+
+        const orderId = `acp_${session.id}`;
+        const order: MockOrder = {
+          id: orderId,
+          status: 'confirmed',
+          items: [...this.cart],
+          subtotal: this.calculateSubtotal(),
+          total: this.calculateSubtotal(),
+          shippingAddress: this.shippingAddress,
+          createdAt: new Date().toISOString(),
+        };
+
+        this.orders.set(orderId, order);
+        this.cart = [];
+        this.checkoutSessionId = null;
+        this.shippingAddress = null;
+
+        return {
+          success: true,
+          orderId,
+          status: session.status,
+          protocol: 'acp',
+          order,
+        };
+      } catch (err) {
+        return {
+          error: `ACP payment failed: ${err instanceof Error ? err.message : String(err)}`,
+        };
+      }
+    }
+
+    // UCP payment flow
     try {
       const result = await this.client.callApi('/checkout/complete', {
         method: 'POST',
@@ -567,14 +767,12 @@ export class ShoppingAgent {
         status: 'confirmed',
         items: [...this.cart],
         subtotal: this.calculateSubtotal(),
-        total: this.calculateSubtotal(), // Simplified; real impl adds shipping + tax
+        total: this.calculateSubtotal(),
         shippingAddress: this.shippingAddress,
         createdAt: new Date().toISOString(),
       };
 
       this.orders.set(orderId, order);
-
-      // Clear cart after successful order
       this.cart = [];
       this.checkoutSessionId = null;
       this.shippingAddress = null;
@@ -628,8 +826,18 @@ export class ShoppingAgent {
 
   private buildResult(success: boolean, answer: string): AgentResult {
     const discovery = (() => {
+      if (this.protocol === 'acp' && this.acpBaseUrl) {
+        // For ACP, create a minimal profile representation
+        return {
+          domain: this.acpBaseUrl.replace(/^https?:\/\//, ''),
+          profile: {
+            ucp: { version: 'acp-2026-01-30', services: {}, capabilities: [] },
+          },
+        };
+      }
       try {
-        return this.client.getDiscovery();
+        const d = this.client.getDiscovery();
+        return { domain: d.domain, profile: d.profile };
       } catch {
         return null;
       }
@@ -657,9 +865,7 @@ export class ShoppingAgent {
       answer,
       steps: [...this.steps],
       iterations: this.iteration,
-      merchant: discovery
-        ? { domain: discovery.domain, profile: discovery.profile }
-        : undefined,
+      merchant: discovery ?? undefined,
       checkout,
     };
   }

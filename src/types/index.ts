@@ -78,6 +78,88 @@ export interface UcpProfile {
   [key: string]: unknown;
 }
 
+// ─── ACP Types (Agentic Commerce Protocol — OpenAI/Stripe) ───
+
+export interface AcpClientOptions {
+  /** ACP merchant endpoint URL */
+  endpoint: string;
+  /** Bearer token for authentication */
+  apiKey: string;
+  /** API version (default: 2026-01-30) */
+  apiVersion?: string;
+  /** Request timeout in ms (default: 30000) */
+  timeoutMs?: number;
+  /** Custom fetch implementation for testing */
+  fetch?: typeof globalThis.fetch;
+}
+
+export type AcpCheckoutStatus =
+  | 'not_ready_for_payment'
+  | 'ready_for_payment'
+  | 'in_progress'
+  | 'authentication_required'
+  | 'completed'
+  | 'canceled';
+
+export interface AcpMoney {
+  /** Amount in minor units (cents). e.g. $29.99 = 2999 */
+  amount: number;
+  /** ISO 4217 currency code */
+  currency: string;
+}
+
+export interface AcpLineItem {
+  id: string;
+  name: string;
+  quantity: number;
+  unit_price: AcpMoney;
+  total_price: AcpMoney;
+  image_url?: string;
+}
+
+export interface AcpShippingAddress {
+  name: string;
+  line1: string;
+  line2?: string;
+  city: string;
+  state: string;
+  postal_code: string;
+  country: string;
+}
+
+export interface AcpCheckoutSession {
+  id: string;
+  status: AcpCheckoutStatus;
+  line_items: AcpLineItem[];
+  totals: {
+    subtotal: AcpMoney;
+    tax?: AcpMoney;
+    shipping?: AcpMoney;
+    total: AcpMoney;
+  };
+  payment_handlers?: Array<{
+    type: string;
+    handler_spec: Record<string, unknown>;
+  }>;
+  links?: {
+    terms_of_use?: string;
+    privacy_policy?: string;
+    return_policy?: string;
+  };
+  shipping_address?: AcpShippingAddress;
+}
+
+export interface MockAcpMerchantOptions {
+  /** Port to listen on (default: 0 for random) */
+  port?: number;
+  /** Merchant name */
+  name?: string;
+  /** Product catalog */
+  products?: MockProduct[];
+  /** Required API key for authentication */
+  apiKey?: string;
+}
+
 // ─── SDK Client Types ───
 
 export interface UcpClientOptions {
@@ -165,6 +247,8 @@ export interface AgentOptions {
   llm: LlmAdapter;
   /** UCP client options */
   clientOptions?: UcpClientOptions;
+  /** ACP client options (enables ACP protocol support) */
+  acpOptions?: AcpClientOptions;
   /** Maximum agent loop iterations (default: 20) */
   maxIterations?: number;
   /** Enable verbose logging */
