@@ -80,9 +80,13 @@ The core library. Everything below ships in a single package.
 
 **UcpClient** -- Discovers merchants via `/.well-known/ucp`, normalizes both array and object capability formats, resolves REST/MCP/A2A transports, and makes authenticated API calls with timeout handling.
 
-**LLM Adapters** -- Provider-agnostic interface. Ships with Gemini, Claude, and OpenAI adapters, all with full function calling support.
+**AcpClient** -- Manages ACP checkout sessions (create, get, update, complete, cancel) with Bearer token authentication, API versioning, and request tracing. Works with any ACP-compliant merchant.
+
+**LLM Adapters** -- Provider-agnostic interface. Ships with Gemini, Claude, and OpenAI adapters, all with full function calling and streaming support.
 
 **MockMerchant** -- A complete UCP-compliant Express server for testing. Serves a UCP profile at `/.well-known/ucp`, OpenAPI schema, product CRUD, search with filtering, full checkout flow with session management, and order tracking. Configurable latency and error rate for chaos testing.
+
+**MockAcpMerchant** -- An ACP-compliant Express server for testing. Serves product catalog endpoints and all 5 ACP checkout session endpoints with Bearer auth, checkout state machine, and payment simulation.
 
 ### 12 Built-in Shopping Tools
 
@@ -234,7 +238,7 @@ const merchant = new MockMerchant({
   |
   |-- client/
   |     UcpClient              # UCP discovery + REST/MCP/A2A client
-  |                            # Profile parsing, capability normalization
+  |     AcpClient              # ACP checkout session client
   |
   |-- llm/
   |     LlmAdapter (interface) # Provider-agnostic LLM contract
@@ -245,25 +249,28 @@ const merchant = new MockMerchant({
   |
   |-- mock/
   |     MockMerchant           # Full UCP-compliant Express test server
+  |     MockAcpMerchant        # Full ACP-compliant Express test server
   |     fixtures.ts            # 10-product catalog + UCP profile builder
   |
   |-- types/
         UcpProfile, UcpService, UcpCapability
-        LlmAdapter, ChatMessage, ToolCall
-        AgentOptions, AgentResult, AgentStep
+        AcpCheckoutSession, AcpClient, AcpLineItem
+        LlmAdapter, ChatMessage, ToolCall, LlmStreamChunk
+        AgentOptions, AgentResult, AgentStep, AgentStreamEvent
         CartItem, CheckoutResult, MockProduct
 ```
 
-The `LlmAdapter` interface is the key abstraction. It has two methods:
+The `LlmAdapter` interface is the key abstraction:
 
 ```typescript
 interface LlmAdapter {
   chat(messages: ChatMessage[], tools?: ToolDefinition[]): Promise<LlmResponse>;
+  chatStream?(messages: ChatMessage[], tools?: ToolDefinition[]): AsyncIterable<LlmStreamChunk>;
   readonly modelName: string;
 }
 ```
 
-Any LLM that supports function calling can implement this interface. The `ShoppingAgent` does not know or care which model is behind it.
+Any LLM that supports function calling can implement this interface. The `ShoppingAgent` does not know or care which model is behind it. The optional `chatStream` method enables real-time streaming via `agent.runStream()`.
 
 ---
 
@@ -283,7 +290,7 @@ To build your own adapter, implement the `LlmAdapter` interface and pass it to `
 
 ## Testing
 
-Agorio uses [Vitest](https://vitest.dev/) and ships with 73 tests covering the UCP client, mock merchant, agent orchestration, and all three LLM adapters.
+Agorio uses [Vitest](https://vitest.dev/) and ships with 113 tests covering the UCP client, ACP client, mock merchants, agent orchestration, streaming, and all three LLM adapters.
 
 ```bash
 # Run all tests
@@ -332,21 +339,19 @@ describe('my agent', () => {
 
 ## Roadmap
 
-### Now (v0.2)
+### Shipped (v0.2)
 - [x] ShoppingAgent with plan-act-observe loop
 - [x] UcpClient with discovery and REST API support
-- [x] GeminiAdapter with native function calling
-- [x] ClaudeAdapter with native function calling
-- [x] OpenAIAdapter with native function calling
-- [x] MockMerchant with full checkout flow
+- [x] GeminiAdapter, ClaudeAdapter, OpenAIAdapter — all with native function calling
+- [x] Streaming support — `runStream()` async generator + `chatStream()` on all adapters
+- [x] AcpClient — full ACP checkout session lifecycle (create, get, update, complete, cancel)
+- [x] MockAcpMerchant — ACP-compliant Express test server
+- [x] Dual-protocol ShoppingAgent — auto-detects UCP vs ACP on discovery
+- [x] MockMerchant with full UCP checkout flow
 - [x] 12 built-in shopping tools
-- [x] 73 tests passing
+- [x] 113 tests passing
 
 ### Next (v0.3)
-- [ ] Streaming support for real-time agent output
-- [ ] ACP client alongside UCP
-
-### Later (v0.4+)
 - [ ] Multi-merchant comparison agent
 - [ ] Ollama adapter for local/offline agents
 - [ ] Reference agents: price comparison, product research, deal finder
@@ -362,15 +367,18 @@ agorio/
   src/
     index.ts                    # Public API exports
     types/index.ts              # All TypeScript types
-    client/ucp-client.ts        # UCP discovery + REST client
+    client/
+      ucp-client.ts             # UCP discovery + REST client
+      acp-client.ts             # ACP checkout session client
     llm/
-      gemini.ts                 # Google Gemini adapter
-      claude.ts                 # Anthropic Claude adapter
-      openai.ts                 # OpenAI GPT adapter
+      gemini.ts                 # Google Gemini adapter (+ streaming)
+      claude.ts                 # Anthropic Claude adapter (+ streaming)
+      openai.ts                 # OpenAI GPT adapter (+ streaming)
       tools.ts                  # 12 shopping tool definitions
-    agent/shopping-agent.ts     # Agent orchestrator
+    agent/shopping-agent.ts     # Agent orchestrator (dual-protocol)
     mock/
       mock-merchant.ts          # UCP-compliant test server
+      mock-acp-merchant.ts      # ACP-compliant test server
       fixtures.ts               # Product catalog + profile builder
   tests/
     ucp-client.test.ts          # 13 tests
@@ -378,6 +386,9 @@ agorio/
     shopping-agent.test.ts      # 7 tests
     claude-adapter.test.ts      # 18 tests
     openai-adapter.test.ts      # 18 tests
+    streaming.test.ts           # 12 tests
+    acp-client.test.ts          # 20 tests
+    acp-agent.test.ts           # 8 tests
   package.json
   tsconfig.json
   vitest.config.ts

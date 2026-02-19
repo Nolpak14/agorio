@@ -19,7 +19,7 @@ function highlightSyntax(code: string): string {
     )
     // Types/classes
     .replace(
-      /\b(ShoppingAgent|GeminiAdapter|ClaudeAdapter|OpenAIAdapter|MockMerchant|UcpClient|Promise)\b/g,
+      /\b(ShoppingAgent|GeminiAdapter|ClaudeAdapter|OpenAIAdapter|MockMerchant|MockAcpMerchant|UcpClient|AcpClient|Promise)\b/g,
       '<span class="token-type">$1</span>',
     )
     // Properties/methods
