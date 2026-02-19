@@ -7,6 +7,9 @@ coverage/
 tests/
 src/
 .github/
+.claude/
+CLAUDE.md
 CONTRIBUTING.md
 vitest.config.ts
 tsconfig.json
+docs/
