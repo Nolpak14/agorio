@@ -73,10 +73,12 @@ export type {
   ToolDefinition,
   ToolCall,
   LlmResponse,
+  LlmStreamChunk,
 
   // Agent types
   AgentOptions,
   AgentStep,
+  AgentStreamEvent,
   AgentResult,
   CheckoutResult,
 

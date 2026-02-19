@@ -115,6 +115,8 @@ export interface NormalizedService {
 export interface LlmAdapter {
   /** Send a message and get a response, optionally with tool definitions */
   chat(messages: ChatMessage[], tools?: ToolDefinition[]): Promise<LlmResponse>;
+  /** Stream a response, yielding chunks as they arrive */
+  chatStream?(messages: ChatMessage[], tools?: ToolDefinition[]): AsyncIterable<LlmStreamChunk>;
   /** Get the model name */
   readonly modelName: string;
 }
@@ -148,6 +150,13 @@ export interface LlmResponse {
     totalTokens: number;
   };
 }
+
+export type LlmStreamChunk =
+  | { type: 'text_delta'; text: string }
+  | { type: 'tool_call_start'; toolCallId: string; toolName: string }
+  | { type: 'tool_call_delta'; toolCallId: string; argsDelta: string }
+  | { type: 'tool_call_complete'; toolCall: ToolCall }
+  | { type: 'done'; response: LlmResponse };
 
 // ─── Agent Types ───
 
@@ -185,6 +194,18 @@ export interface AgentResult {
   };
   checkout?: CheckoutResult;
   error?: string;
+}
+
+export interface AgentStreamEvent {
+  type: 'text_delta' | 'tool_call' | 'tool_result' | 'done' | 'error';
+  iteration: number;
+  text?: string;
+  toolName?: string;
+  toolInput?: Record<string, unknown>;
+  toolOutput?: unknown;
+  result?: AgentResult;
+  error?: string;
+  timestamp: number;
 }
 
 export interface CheckoutResult {
