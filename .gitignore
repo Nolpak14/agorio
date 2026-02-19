@@ -4,6 +4,8 @@ node_modules/
 # Build output
 dist/
 *.tsbuildinfo
+site/out/
+site/.next/
 
 # Test coverage
 coverage/
