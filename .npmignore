@@ -14,4 +14,3 @@ vitest.config.ts
 tsconfig.json
 docs/
 site/
-deploy/
