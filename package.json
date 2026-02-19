@@ -39,6 +39,7 @@
     "node": ">=20.0.0"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.77.0",
     "@google/generative-ai": "^0.24.0"
   },
   "devDependencies": {
