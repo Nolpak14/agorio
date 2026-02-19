@@ -80,7 +80,7 @@ The core library. Everything below ships in a single package.
 
 **UcpClient** -- Discovers merchants via `/.well-known/ucp`, normalizes both array and object capability formats, resolves REST/MCP/A2A transports, and makes authenticated API calls with timeout handling.
 
-**LLM Adapters** -- Provider-agnostic interface. Gemini adapter ships first with full function calling support. Claude and OpenAI adapters are coming.
+**LLM Adapters** -- Provider-agnostic interface. Ships with Gemini, Claude, and OpenAI adapters, all with full function calling support.
 
 **MockMerchant** -- A complete UCP-compliant Express server for testing. Serves a UCP profile at `/.well-known/ucp`, OpenAPI schema, product CRUD, search with filtering, full checkout flow with session management, and order tracking. Configurable latency and error rate for chaos testing.
 
@@ -110,7 +110,10 @@ These are the function calling tools available to the agent during its reasoning
 ### Prerequisites
 
 - Node.js 20 or later
-- A Gemini API key ([get one free](https://aistudio.google.com/apikey))
+- An API key from any supported provider:
+  - [Gemini](https://aistudio.google.com/apikey) (free tier available)
+  - [OpenAI](https://platform.openai.com/api-keys)
+  - [Anthropic](https://console.anthropic.com/)
 
 ### Install
 
@@ -122,6 +125,9 @@ npm install @agorio/sdk
 
 ```typescript
 import { ShoppingAgent, GeminiAdapter, MockMerchant } from '@agorio/sdk';
+// Or use any adapter:
+// import { ClaudeAdapter } from '@agorio/sdk';
+// import { OpenAIAdapter } from '@agorio/sdk';
 
 // 1. Start a mock merchant (UCP-compliant test server)
 const merchant = new MockMerchant({ name: 'TechShop' });
@@ -134,6 +140,9 @@ const agent = new ShoppingAgent({
     model: 'gemini-2.0-flash',   // default
     temperature: 0.7,
   }),
+  // Or swap in Claude/OpenAI with zero code changes:
+  // llm: new ClaudeAdapter({ apiKey: process.env.ANTHROPIC_API_KEY }),
+  // llm: new OpenAIAdapter({ apiKey: process.env.OPENAI_API_KEY }),
   verbose: true,  // logs each think/tool/result step
   maxIterations: 20,
   onStep: (step) => {
@@ -230,6 +239,8 @@ const merchant = new MockMerchant({
   |-- llm/
   |     LlmAdapter (interface) # Provider-agnostic LLM contract
   |     GeminiAdapter          # Google Gemini with function calling
+  |     ClaudeAdapter          # Anthropic Claude with function calling
+  |     OpenAIAdapter          # OpenAI GPT with function calling
   |     tools.ts               # 12 shopping tool definitions (JSON Schema)
   |
   |-- mock/
@@ -261,8 +272,8 @@ Any LLM that supports function calling can implement this interface. The `Shoppi
 | Provider | Adapter | Status | Function Calling |
 |---|---|---|---|
 | Google Gemini | `GeminiAdapter` | Available | Native |
-| Anthropic Claude | `ClaudeAdapter` | Coming soon | Native |
-| OpenAI / ChatGPT | `OpenAIAdapter` | Coming soon | Native |
+| Anthropic Claude | `ClaudeAdapter` | Available | Native |
+| OpenAI / ChatGPT | `OpenAIAdapter` | Available | Native |
 | Ollama (local) | `OllamaAdapter` | Planned | Via tool use |
 | Any provider | Implement `LlmAdapter` | Build your own | Any |
 
@@ -272,7 +283,7 @@ To build your own adapter, implement the `LlmAdapter` interface and pass it to `
 
 ## Testing
 
-Agorio uses [Vitest](https://vitest.dev/) and ships with 37 tests covering the UCP client, mock merchant, and agent orchestration.
+Agorio uses [Vitest](https://vitest.dev/) and ships with 73 tests covering the UCP client, mock merchant, agent orchestration, and all three LLM adapters.
 
 ```bash
 # Run all tests
@@ -321,21 +332,21 @@ describe('my agent', () => {
 
 ## Roadmap
 
-### Now (v0.1)
+### Now (v0.2)
 - [x] ShoppingAgent with plan-act-observe loop
 - [x] UcpClient with discovery and REST API support
 - [x] GeminiAdapter with native function calling
+- [x] ClaudeAdapter with native function calling
+- [x] OpenAIAdapter with native function calling
 - [x] MockMerchant with full checkout flow
 - [x] 12 built-in shopping tools
-- [x] 37 tests passing
+- [x] 73 tests passing
 
-### Next (v0.2)
-- [ ] Claude adapter (Anthropic)
-- [ ] OpenAI adapter (GPT-4o, o1)
+### Next (v0.3)
 - [ ] Streaming support for real-time agent output
 - [ ] ACP client alongside UCP
 
-### Later (v0.3+)
+### Later (v0.4+)
 - [ ] Multi-merchant comparison agent
 - [ ] Ollama adapter for local/offline agents
 - [ ] Reference agents: price comparison, product research, deal finder
@@ -354,6 +365,8 @@ agorio/
     client/ucp-client.ts        # UCP discovery + REST client
     llm/
       gemini.ts                 # Google Gemini adapter
+      claude.ts                 # Anthropic Claude adapter
+      openai.ts                 # OpenAI GPT adapter
       tools.ts                  # 12 shopping tool definitions
     agent/shopping-agent.ts     # Agent orchestrator
     mock/
@@ -363,6 +376,8 @@ agorio/
     ucp-client.test.ts          # 13 tests
     mock-merchant.test.ts       # 17 tests
     shopping-agent.test.ts      # 7 tests
+    claude-adapter.test.ts      # 18 tests
+    openai-adapter.test.ts      # 18 tests
   package.json
   tsconfig.json
   vitest.config.ts
@@ -376,7 +391,7 @@ We welcome contributions. See [CONTRIBUTING.md](CONTRIBUTING.md) for setup instr
 
 Areas where contributions are especially valuable:
 
-- **LLM adapters** -- Claude, OpenAI, Ollama, or any other provider
+- **LLM adapters** -- Ollama, Mistral, or any other provider
 - **Shopping tools** -- new tools for wishlists, reviews, returns, price alerts
 - **Reference agents** -- example agents that demonstrate real use cases
 - **Documentation** -- tutorials, guides, examples
