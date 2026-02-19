@@ -21,6 +21,7 @@ import type {
   ToolDefinition,
   ToolCall,
   LlmResponse,
+  LlmStreamChunk,
 } from '../types/index.js';
 
 export interface GeminiAdapterOptions {
@@ -108,6 +109,63 @@ export class GeminiAdapter implements LlmAdapter {
             totalTokens: usage.totalTokenCount ?? 0,
           }
         : undefined,
+    };
+  }
+
+  async *chatStream(messages: ChatMessage[], tools?: ToolDefinition[]): AsyncGenerator<LlmStreamChunk> {
+    const contents = this.toGeminiContents(messages);
+    const geminiTools = tools ? this.toGeminiTools(tools) : undefined;
+
+    const result = await this.model.generateContentStream({
+      contents,
+      tools: geminiTools ? [{ functionDeclarations: geminiTools }] : undefined,
+      toolConfig: geminiTools
+        ? { functionCallingConfig: { mode: this.functionCallingMode } }
+        : undefined,
+    });
+
+    const textParts: string[] = [];
+    const toolCalls: ToolCall[] = [];
+
+    for await (const chunk of result.stream) {
+      const candidate = chunk.candidates?.[0];
+      if (!candidate) continue;
+
+      for (const part of candidate.content.parts) {
+        if (part.text) {
+          textParts.push(part.text);
+          yield { type: 'text_delta', text: part.text };
+        }
+        if (part.functionCall) {
+          const tc: ToolCall = {
+            id: `call_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+            name: part.functionCall.name,
+            arguments: (part.functionCall.args ?? {}) as Record<string, unknown>,
+          };
+          toolCalls.push(tc);
+          yield { type: 'tool_call_start', toolCallId: tc.id, toolName: tc.name };
+          yield { type: 'tool_call_complete', toolCall: tc };
+        }
+      }
+    }
+
+    const aggregated = await result.response;
+    const usage = aggregated.usageMetadata;
+
+    yield {
+      type: 'done',
+      response: {
+        content: textParts.join(''),
+        toolCalls,
+        finishReason: toolCalls.length > 0 ? 'tool_calls' : 'stop',
+        usage: usage
+          ? {
+              promptTokens: usage.promptTokenCount ?? 0,
+              completionTokens: usage.candidatesTokenCount ?? 0,
+              totalTokens: usage.totalTokenCount ?? 0,
+            }
+          : undefined,
+      },
     };
   }
 

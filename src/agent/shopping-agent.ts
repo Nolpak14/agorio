@@ -13,6 +13,7 @@ import type {
   AgentOptions,
   AgentResult,
   AgentStep,
+  AgentStreamEvent,
   ChatMessage,
   ToolCall,
   CartItem,
@@ -129,6 +130,150 @@ export class ShoppingAgent {
       false,
       `Agent reached maximum iterations (${this.options.maxIterations}) without completing the task.`
     );
+  }
+
+  /**
+   * Run the agent with streaming output.
+   *
+   * Yields AgentStreamEvent objects as the agent reasons and acts.
+   * If the LLM adapter supports chatStream(), text is streamed in real-time.
+   * Otherwise, falls back to chat() and emits the full text as a single delta.
+   */
+  async *runStream(task: string): AsyncGenerator<AgentStreamEvent> {
+    const messages: ChatMessage[] = [
+      { role: 'user', content: task },
+    ];
+
+    this.iteration = 0;
+    const adapter = this.options.llm;
+    const supportsStreaming = typeof adapter.chatStream === 'function';
+
+    try {
+      while (this.iteration < this.options.maxIterations) {
+        this.iteration++;
+
+        let textContent = '';
+        let toolCalls: ToolCall[] = [];
+
+        if (supportsStreaming) {
+          for await (const chunk of adapter.chatStream!(messages, SHOPPING_AGENT_TOOLS)) {
+            switch (chunk.type) {
+              case 'text_delta':
+                textContent += chunk.text;
+                yield {
+                  type: 'text_delta',
+                  iteration: this.iteration,
+                  text: chunk.text,
+                  timestamp: Date.now(),
+                };
+                break;
+              case 'tool_call_complete':
+                toolCalls.push(chunk.toolCall);
+                break;
+              case 'done':
+                textContent = chunk.response.content || textContent;
+                toolCalls = chunk.response.toolCalls.length > 0
+                  ? chunk.response.toolCalls
+                  : toolCalls;
+                break;
+            }
+          }
+        } else {
+          const response = await adapter.chat(messages, SHOPPING_AGENT_TOOLS);
+          textContent = response.content;
+          toolCalls = response.toolCalls;
+
+          if (textContent) {
+            yield {
+              type: 'text_delta',
+              iteration: this.iteration,
+              text: textContent,
+              timestamp: Date.now(),
+            };
+          }
+        }
+
+        // Record thinking step
+        if (textContent) {
+          this.recordStep({ type: 'thinking', content: textContent });
+          this.log(`[Think] ${textContent}`);
+        }
+
+        // If no tool calls, the agent is done
+        if (toolCalls.length === 0) {
+          const result = this.buildResult(true, textContent);
+          yield { type: 'done', result, iteration: this.iteration, timestamp: Date.now() };
+          return;
+        }
+
+        // Add assistant message to history
+        messages.push({
+          role: 'assistant',
+          content: textContent,
+          toolCalls,
+        });
+
+        // Execute each tool call
+        for (const toolCall of toolCalls) {
+          this.recordStep({
+            type: 'tool_call',
+            toolName: toolCall.name,
+            toolInput: toolCall.arguments,
+          });
+          this.log(`[Tool] ${toolCall.name}(${JSON.stringify(toolCall.arguments)})`);
+
+          yield {
+            type: 'tool_call',
+            iteration: this.iteration,
+            toolName: toolCall.name,
+            toolInput: toolCall.arguments,
+            timestamp: Date.now(),
+          };
+
+          let result: unknown;
+          try {
+            result = await this.executeTool(toolCall);
+          } catch (err) {
+            result = { error: err instanceof Error ? err.message : String(err) };
+          }
+
+          this.recordStep({
+            type: 'tool_result',
+            toolName: toolCall.name,
+            toolOutput: result,
+          });
+          this.log(`[Result] ${JSON.stringify(result).slice(0, 200)}`);
+
+          yield {
+            type: 'tool_result',
+            iteration: this.iteration,
+            toolName: toolCall.name,
+            toolOutput: result,
+            timestamp: Date.now(),
+          };
+
+          messages.push({
+            role: 'tool',
+            content: JSON.stringify(result),
+            toolCallId: toolCall.name,
+          });
+        }
+      }
+
+      // Max iterations reached
+      const result = this.buildResult(
+        false,
+        `Agent reached maximum iterations (${this.options.maxIterations}) without completing the task.`
+      );
+      yield { type: 'done', result, iteration: this.iteration, timestamp: Date.now() };
+    } catch (err) {
+      yield {
+        type: 'error',
+        iteration: this.iteration,
+        error: err instanceof Error ? err.message : String(err),
+        timestamp: Date.now(),
+      };
+    }
   }
 
   /**

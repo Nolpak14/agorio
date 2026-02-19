@@ -12,6 +12,7 @@ import type {
   ToolDefinition,
   ToolCall,
   LlmResponse,
+  LlmStreamChunk,
 } from '../types/index.js';
 
 export interface OpenAIAdapterOptions {
@@ -55,6 +56,87 @@ export class OpenAIAdapter implements LlmAdapter {
     });
 
     return this.parseResponse(response);
+  }
+
+  async *chatStream(messages: ChatMessage[], tools?: ToolDefinition[]): AsyncGenerator<LlmStreamChunk> {
+    const openaiMessages = this.toOpenAIMessages(messages);
+    const openaiTools = tools?.length ? this.toOpenAITools(tools) : undefined;
+
+    const stream = await this.client.chat.completions.create({
+      model: this.modelName,
+      max_tokens: this.maxTokens,
+      messages: openaiMessages,
+      ...(openaiTools ? { tools: openaiTools } : {}),
+      temperature: this.temperature,
+      stream: true,
+    });
+
+    let content = '';
+    const toolCalls: ToolCall[] = [];
+    const toolAccumulators = new Map<number, { id: string; name: string; args: string }>();
+
+    for await (const chunk of stream) {
+      const choice = chunk.choices[0];
+      if (!choice) continue;
+
+      const delta = choice.delta;
+
+      if (delta.content) {
+        content += delta.content;
+        yield { type: 'text_delta', text: delta.content };
+      }
+
+      if (delta.tool_calls) {
+        for (const tc of delta.tool_calls) {
+          const idx = tc.index;
+          if (!toolAccumulators.has(idx)) {
+            toolAccumulators.set(idx, {
+              id: tc.id ?? '',
+              name: tc.function?.name ?? '',
+              args: '',
+            });
+            yield {
+              type: 'tool_call_start',
+              toolCallId: tc.id ?? '',
+              toolName: tc.function?.name ?? '',
+            };
+          }
+          const acc = toolAccumulators.get(idx)!;
+          if (tc.id) acc.id = tc.id;
+          if (tc.function?.name) acc.name = tc.function.name;
+          if (tc.function?.arguments) {
+            acc.args += tc.function.arguments;
+            yield {
+              type: 'tool_call_delta',
+              toolCallId: acc.id,
+              argsDelta: tc.function.arguments,
+            };
+          }
+        }
+      }
+
+      if (choice.finish_reason) {
+        for (const [, acc] of toolAccumulators) {
+          const tc: ToolCall = {
+            id: acc.id,
+            name: acc.name,
+            arguments: acc.args ? JSON.parse(acc.args) : {},
+          };
+          toolCalls.push(tc);
+          yield { type: 'tool_call_complete', toolCall: tc };
+        }
+        toolAccumulators.clear();
+      }
+    }
+
+    yield {
+      type: 'done',
+      response: {
+        content,
+        toolCalls,
+        finishReason: toolCalls.length > 0 ? 'tool_calls' : 'stop',
+      },
+    };
   }
 
   // ─── Internal helpers ───

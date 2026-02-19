@@ -12,6 +12,7 @@ import type {
   ToolDefinition,
   ToolCall,
   LlmResponse,
+  LlmStreamChunk,
 } from '../types/index.js';
 
 export interface ClaudeAdapterOptions {
@@ -56,6 +57,84 @@ export class ClaudeAdapter implements LlmAdapter {
     });
 
     return this.parseResponse(response);
+  }
+
+  async *chatStream(messages: ChatMessage[], tools?: ToolDefinition[]): AsyncGenerator<LlmStreamChunk> {
+    const anthropicMessages = this.toAnthropicMessages(messages);
+    const anthropicTools = tools?.length ? this.toAnthropicTools(tools) : undefined;
+
+    const stream = this.client.messages.stream({
+      model: this.modelName,
+      max_tokens: this.maxTokens,
+      system: this.systemPrompt,
+      messages: anthropicMessages,
+      ...(anthropicTools ? { tools: anthropicTools } : {}),
+      temperature: this.temperature,
+    });
+
+    const textParts: string[] = [];
+    const toolCalls: ToolCall[] = [];
+    const toolAccumulators = new Map<number, { id: string; name: string; args: string }>();
+
+    for await (const event of stream) {
+      if (event.type === 'content_block_start') {
+        if (event.content_block.type === 'tool_use') {
+          toolAccumulators.set(event.index, {
+            id: event.content_block.id,
+            name: event.content_block.name,
+            args: '',
+          });
+          yield {
+            type: 'tool_call_start',
+            toolCallId: event.content_block.id,
+            toolName: event.content_block.name,
+          };
+        }
+      } else if (event.type === 'content_block_delta') {
+        if (event.delta.type === 'text_delta') {
+          textParts.push(event.delta.text);
+          yield { type: 'text_delta', text: event.delta.text };
+        } else if (event.delta.type === 'input_json_delta') {
+          const acc = toolAccumulators.get(event.index);
+          if (acc) {
+            acc.args += event.delta.partial_json;
+            yield {
+              type: 'tool_call_delta',
+              toolCallId: acc.id,
+              argsDelta: event.delta.partial_json,
+            };
+          }
+        }
+      } else if (event.type === 'content_block_stop') {
+        const acc = toolAccumulators.get(event.index);
+        if (acc) {
+          const tc: ToolCall = {
+            id: acc.id,
+            name: acc.name,
+            arguments: acc.args ? JSON.parse(acc.args) : {},
+          };
+          toolCalls.push(tc);
+          yield { type: 'tool_call_complete', toolCall: tc };
+          toolAccumulators.delete(event.index);
+        }
+      }
+    }
+
+    const finalMessage = await stream.finalMessage();
+
+    yield {
+      type: 'done',
+      response: {
+        content: textParts.join(''),
+        toolCalls,
+        finishReason: toolCalls.length > 0 ? 'tool_calls' : 'stop',
+        usage: {
+          promptTokens: finalMessage.usage.input_tokens,
+          completionTokens: finalMessage.usage.output_tokens,
+          totalTokens: finalMessage.usage.input_tokens + finalMessage.usage.output_tokens,
+        },
+      },
+    };
   }
 
   // ─── Internal helpers ───
