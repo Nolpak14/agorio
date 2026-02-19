@@ -40,6 +40,8 @@ export { ClaudeAdapter } from './llm/claude.js';
 export type { ClaudeAdapterOptions } from './llm/claude.js';
 export { OpenAIAdapter } from './llm/openai.js';
 export type { OpenAIAdapterOptions } from './llm/openai.js';
+export { OllamaAdapter } from './llm/ollama.js';
+export type { OllamaAdapterOptions } from './llm/ollama.js';
 
 // Agent
 export { ShoppingAgent } from './agent/shopping-agent.js';
