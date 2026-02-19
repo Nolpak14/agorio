@@ -22,11 +22,15 @@
   },
   "keywords": [
     "ucp",
+    "acp",
     "shopping-agent",
     "ai-agent",
     "agentic-commerce",
     "gemini",
-    "universal-commerce-protocol"
+    "claude",
+    "openai",
+    "universal-commerce-protocol",
+    "agentic-commerce-protocol"
   ],
   "license": "MIT",
   "author": "UCPtools",
