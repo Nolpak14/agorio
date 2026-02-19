@@ -1,0 +1,12 @@
+node_modules/
+coverage/
+*.tsbuildinfo
+.DS_Store
+.env
+.env.*
+tests/
+src/
+.github/
+CONTRIBUTING.md
+vitest.config.ts
+tsconfig.json

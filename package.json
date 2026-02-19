@@ -1,7 +1,7 @@
 {
-  "name": "@ucptools/agent-sdk",
+  "name": "@agorio/sdk",
   "version": "0.1.0",
-  "description": "SDK for building AI shopping agents that interact with UCP-enabled merchants",
+  "description": "The open-source toolkit for building AI commerce agents using UCP and ACP protocols",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -32,7 +32,7 @@
   "author": "UCPtools",
   "repository": {
     "type": "git",
-    "url": "https://github.com/nicobailon/ucp-tools",
+    "url": "https://github.com/Nolpak14/agorio",
     "directory": "packages/agent-sdk"
   },
   "engines": {
