@@ -12,12 +12,14 @@ import { AcpClient } from '../client/acp-client.js';
 import { SHOPPING_AGENT_TOOLS } from '../llm/tools.js';
 import type {
   AgentOptions,
+  AgentPlugin,
   AgentResult,
   AgentStep,
   AgentStreamEvent,
   AcpCheckoutSession,
   ChatMessage,
   ToolCall,
+  ToolDefinition,
   CartItem,
   CartState,
   MoneyAmount,
@@ -36,6 +38,8 @@ export class ShoppingAgent {
   private readonly client: UcpClient;
   private readonly acpClient: AcpClient | null;
   private readonly steps: AgentStep[] = [];
+  private readonly plugins: Map<string, AgentPlugin>;
+  private readonly allTools: ToolDefinition[];
   private iteration = 0;
 
   // Protocol state
@@ -58,6 +62,32 @@ export class ShoppingAgent {
     this.acpClient = options.acpOptions
       ? new AcpClient(options.acpOptions)
       : null;
+
+    // Register plugins
+    this.plugins = new Map();
+    const builtInNames = new Set(SHOPPING_AGENT_TOOLS.map(t => t.name));
+    const pluginTools: ToolDefinition[] = [];
+
+    for (const plugin of options.plugins ?? []) {
+      if (builtInNames.has(plugin.name)) {
+        throw new Error(
+          `Plugin "${plugin.name}" conflicts with a built-in tool. Choose a different name.`
+        );
+      }
+      if (this.plugins.has(plugin.name)) {
+        throw new Error(
+          `Duplicate plugin name: "${plugin.name}". Each plugin must have a unique name.`
+        );
+      }
+      this.plugins.set(plugin.name, plugin);
+      pluginTools.push({
+        name: plugin.name,
+        description: plugin.description,
+        parameters: plugin.parameters,
+      });
+    }
+
+    this.allTools = [...SHOPPING_AGENT_TOOLS, ...pluginTools];
   }
 
   /**
@@ -79,7 +109,7 @@ export class ShoppingAgent {
       // Ask the LLM what to do next
       const llmResponse = await this.options.llm.chat(
         messages,
-        SHOPPING_AGENT_TOOLS
+        this.allTools
       );
 
       // Record thinking step
@@ -166,7 +196,7 @@ export class ShoppingAgent {
         let toolCalls: ToolCall[] = [];
 
         if (supportsStreaming) {
-          for await (const chunk of adapter.chatStream!(messages, SHOPPING_AGENT_TOOLS)) {
+          for await (const chunk of adapter.chatStream!(messages, this.allTools)) {
             switch (chunk.type) {
               case 'text_delta':
                 textContent += chunk.text;
@@ -189,7 +219,7 @@ export class ShoppingAgent {
             }
           }
         } else {
-          const response = await adapter.chat(messages, SHOPPING_AGENT_TOOLS);
+          const response = await adapter.chat(messages, this.allTools);
           textContent = response.content;
           toolCalls = response.toolCalls;
 
@@ -287,6 +317,13 @@ export class ShoppingAgent {
   }
 
   /**
+   * Get the names of all registered plugins.
+   */
+  getPlugins(): string[] {
+    return [...this.plugins.keys()];
+  }
+
+  /**
    * Get the current cart state.
    */
   getCart(): CartState {
@@ -339,8 +376,13 @@ export class ShoppingAgent {
       case 'get_order_status':
         return this.toolGetOrderStatus(args.orderId as string);
 
-      default:
+      default: {
+        const plugin = this.plugins.get(toolCall.name);
+        if (plugin) {
+          return await plugin.handler(args);
+        }
         return { error: `Unknown tool: ${toolCall.name}` };
+      }
     }
   }
 
