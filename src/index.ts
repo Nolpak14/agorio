@@ -103,6 +103,12 @@ export type {
   AgentResult,
   CheckoutResult,
 
+  // Observability types
+  AgentLogEvent,
+  AgentSpan,
+  AgentTracer,
+  AgentUsageSummary,
+
   // Shopping types
   CartItem,
   CartState,
