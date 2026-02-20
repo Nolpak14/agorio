@@ -16,7 +16,9 @@ import type {
   DiscoveryResult,
   NormalizedService,
   PaymentHandler,
+  TransportPreference,
 } from '../types/index.js';
+import { McpClient, McpError } from './mcp-client.js';
 
 const DEFAULT_TIMEOUT_MS = 30_000;
 const WELL_KNOWN_PATHS = ['/.well-known/ucp', '/.well-known/ucp.json'];
@@ -25,8 +27,10 @@ export class UcpClient {
   private readonly timeoutMs: number;
   private readonly fetchFn: typeof globalThis.fetch;
   private readonly headers: Record<string, string>;
+  private readonly preferredTransport: TransportPreference;
 
   private discovery: DiscoveryResult | null = null;
+  private mcpClient: McpClient | null = null;
 
   constructor(options: UcpClientOptions = {}) {
     this.timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
@@ -36,6 +40,7 @@ export class UcpClient {
       'User-Agent': '@ucptools/agent-sdk/0.1.0',
       ...options.headers,
     };
+    this.preferredTransport = options.preferredTransport ?? 'auto';
   }
 
   /**
@@ -157,6 +162,17 @@ export class UcpClient {
   }
 
   /**
+   * Get the MCP endpoint for a service.
+   */
+  getMcpEndpoint(serviceName?: string): string | undefined {
+    const services = this.getDiscovery().services;
+    const service = serviceName
+      ? services.find(s => s.name === serviceName)
+      : services[0];
+    return service?.transports.mcp?.endpoint;
+  }
+
+  /**
    * Get payment handlers.
    */
   getPaymentHandlers(): PaymentHandler[] {
@@ -164,7 +180,12 @@ export class UcpClient {
   }
 
   /**
-   * Make a REST API call to the merchant's UCP endpoint.
+   * Make an API call to the merchant, using the preferred transport.
+   *
+   * Transport selection:
+   * - 'auto' (default): tries MCP if available, falls back to REST
+   * - 'rest': REST only
+   * - 'mcp': MCP only (throws if unavailable)
    */
   async callApi(
     path: string,
@@ -172,18 +193,41 @@ export class UcpClient {
       method?: string;
       body?: unknown;
       serviceName?: string;
+      transport?: TransportPreference;
     } = {}
   ): Promise<unknown> {
+    const transport = options.transport ?? this.preferredTransport;
+    const httpMethod = options.method ?? (options.body ? 'POST' : 'GET');
+
+    // Try MCP first if preferred or auto
+    if (transport === 'mcp' || transport === 'auto') {
+      const mcpEndpoint = this.getMcpEndpoint(options.serviceName);
+      if (mcpEndpoint) {
+        try {
+          return await this.callViaMcp(mcpEndpoint, path, httpMethod, options.body);
+        } catch (err) {
+          // In auto mode, fall back to REST on MCP failure
+          if (transport === 'auto' && this.getRestEndpoint(options.serviceName)) {
+            // Fall through to REST
+          } else {
+            throw err;
+          }
+        }
+      } else if (transport === 'mcp') {
+        throw new Error('No MCP endpoint available. Discover the merchant first.');
+      }
+    }
+
+    // REST transport
     const endpoint = this.getRestEndpoint(options.serviceName);
     if (!endpoint) {
       throw new Error('No REST endpoint available. Discover the merchant first.');
     }
 
     const url = `${endpoint}${path}`;
-    const method = options.method ?? (options.body ? 'POST' : 'GET');
 
     const response = await this.fetchWithTimeout(url, {
-      method,
+      method: httpMethod,
       headers: {
         ...this.headers,
         ...(options.body ? { 'Content-Type': 'application/json' } : {}),
@@ -194,7 +238,7 @@ export class UcpClient {
     if (!response.ok) {
       const errorBody = await response.text().catch(() => '');
       throw new UcpApiError(
-        `API call failed: ${method} ${path} → ${response.status}`,
+        `API call failed: ${httpMethod} ${path} → ${response.status}`,
         response.status,
         errorBody
       );
@@ -205,6 +249,23 @@ export class UcpClient {
       return response.json();
     }
     return response.text();
+  }
+
+  /**
+   * Make a direct JSON-RPC call via MCP transport.
+   */
+  async callMcp(
+    method: string,
+    params?: Record<string, unknown>,
+    serviceName?: string
+  ): Promise<unknown> {
+    const mcpEndpoint = this.getMcpEndpoint(serviceName);
+    if (!mcpEndpoint) {
+      throw new Error('No MCP endpoint available. Discover the merchant first.');
+    }
+
+    const client = this.getOrCreateMcpClient(mcpEndpoint);
+    return client.call(method, params);
   }
 
   /**
@@ -246,6 +307,91 @@ export class UcpClient {
     } finally {
       clearTimeout(timer);
     }
+  }
+
+  /**
+   * Route a REST-style call through the MCP JSON-RPC transport.
+   * Maps REST paths to JSON-RPC method names.
+   */
+  private async callViaMcp(
+    mcpEndpoint: string,
+    path: string,
+    httpMethod: string,
+    body?: unknown
+  ): Promise<unknown> {
+    const client = this.getOrCreateMcpClient(mcpEndpoint);
+    const { method, params } = this.restPathToMcpCall(path, httpMethod, body);
+    return client.call(method, params);
+  }
+
+  /**
+   * Map a REST path + method to a JSON-RPC method name + params.
+   */
+  private restPathToMcpCall(
+    path: string,
+    httpMethod: string,
+    body?: unknown
+  ): { method: string; params: Record<string, unknown> } {
+    // Strip leading slash and query string for matching
+    const [pathPart, queryString] = path.split('?');
+    const cleanPath = pathPart.replace(/^\//, '');
+    const queryParams: Record<string, string> = {};
+    if (queryString) {
+      for (const pair of queryString.split('&')) {
+        const [key, value] = pair.split('=');
+        queryParams[decodeURIComponent(key)] = decodeURIComponent(value ?? '');
+      }
+    }
+
+    // products/search?q=X
+    if (cleanPath === 'products/search') {
+      return { method: 'products/search', params: { ...queryParams } };
+    }
+
+    // products/:id
+    const productMatch = cleanPath.match(/^products\/(.+)$/);
+    if (productMatch && httpMethod === 'GET') {
+      return { method: 'products/get', params: { id: productMatch[1] } };
+    }
+
+    // products (list)
+    if (cleanPath === 'products' && httpMethod === 'GET') {
+      return { method: 'products/list', params: { ...queryParams } };
+    }
+
+    // checkout/complete
+    if (cleanPath === 'checkout/complete' && httpMethod === 'POST') {
+      return { method: 'checkout/complete', params: (body ?? {}) as Record<string, unknown> };
+    }
+
+    // checkout (create)
+    if (cleanPath === 'checkout' && httpMethod === 'POST') {
+      return { method: 'checkout/create', params: (body ?? {}) as Record<string, unknown> };
+    }
+
+    // orders/:id
+    const orderMatch = cleanPath.match(/^orders\/(.+)$/);
+    if (orderMatch && httpMethod === 'GET') {
+      return { method: 'orders/get', params: { id: orderMatch[1] } };
+    }
+
+    // Fallback: use the path as the method name
+    return {
+      method: cleanPath.replace(/\//g, '/'),
+      params: { ...(body as Record<string, unknown> ?? {}), ...queryParams },
+    };
+  }
+
+  private getOrCreateMcpClient(endpoint: string): McpClient {
+    if (!this.mcpClient || this.mcpClient.getEndpoint() !== endpoint) {
+      this.mcpClient = new McpClient({
+        endpoint,
+        timeoutMs: this.timeoutMs,
+        fetch: this.fetchFn,
+        headers: this.headers,
+      });
+    }
+    return this.mcpClient;
   }
 
   /**

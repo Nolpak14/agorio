@@ -4,7 +4,7 @@
  * Default product catalog and UCP profile for testing.
  */
 
-import type { MockProduct, UcpProfile } from '../types/index.js';
+import type { MockProduct, UcpProfile, UcpService } from '../types/index.js';
 
 export const DEFAULT_PRODUCTS: MockProduct[] = [
   {
@@ -106,19 +106,32 @@ export const DEFAULT_PRODUCTS: MockProduct[] = [
 /**
  * Build a UCP profile for the mock merchant.
  */
-export function buildMockProfile(baseUrl: string, merchantName?: string): UcpProfile {
+export function buildMockProfile(
+  baseUrl: string,
+  merchantName?: string,
+  options?: { mcp?: boolean; mcpEndpoint?: string }
+): UcpProfile {
+  const service: UcpService = {
+    version: '2026-01-11',
+    spec: 'https://ucp.dev/specification/overview/',
+    rest: {
+      schema: `${baseUrl}/ucp/schema/openapi.json`,
+      endpoint: `${baseUrl}/ucp/v1`,
+    },
+  };
+
+  if (options?.mcp) {
+    service.mcp = {
+      schema: `${baseUrl}/mcp/schema.json`,
+      endpoint: options.mcpEndpoint ?? `${baseUrl}/mcp`,
+    };
+  }
+
   return {
     ucp: {
       version: '2026-01-11',
       services: {
-        'dev.ucp.shopping': {
-          version: '2026-01-11',
-          spec: 'https://ucp.dev/specification/overview/',
-          rest: {
-            schema: `${baseUrl}/ucp/schema/openapi.json`,
-            endpoint: `${baseUrl}/ucp/v1`,
-          },
-        },
+        'dev.ucp.shopping': service,
       },
       capabilities: [
         {
