@@ -8,6 +8,8 @@ tests/
 src/
 .github/
 .claude/
+.vercel/
+.vscode/
 CLAUDE.md
 CONTRIBUTING.md
 vitest.config.ts
