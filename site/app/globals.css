@@ -1,47 +1,323 @@
 @import "tailwindcss";
 
+/* ── Design Tokens ── */
 :root {
-  --bg: #0a0a0a;
-  --fg: #ededed;
-  --accent: #3b82f6;
-  --accent-hover: #2563eb;
-  --muted: #737373;
-  --border: #262626;
-  --card: #141414;
-  --code-bg: #1a1a2e;
+  --bg: #050510;
+  --bg-end: #0a0a1a;
+  --fg: #e8eaed;
+  --fg-dim: #b0b4ba;
+  --accent: #00f0ff;
+  --accent-hover: #00d4e0;
+  --accent-glow: rgba(0, 240, 255, 0.15);
+  --violet: #8b5cf6;
+  --violet-glow: rgba(139, 92, 246, 0.15);
+  --amber: #f59e0b;
+  --muted: #6b7280;
+  --border: #1e293b;
+  --border-bright: #334155;
+  --card: #0c0c1d;
+  --card-hover: #111127;
+  --code-bg: #0d0d20;
+  --terminal-bar: #161630;
 }
 
+/* ── Base ── */
 body {
-  background: var(--bg);
+  background: linear-gradient(180deg, var(--bg) 0%, var(--bg-end) 100%);
+  background-attachment: fixed;
   color: var(--fg);
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+/* Dot grid overlay */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: radial-gradient(circle, rgba(0, 240, 255, 0.03) 1px, transparent 1px);
+  background-size: 32px 32px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+main {
+  position: relative;
+  z-index: 1;
 }
 
 ::selection {
   background: var(--accent);
-  color: white;
+  color: #000;
 }
 
-/* Code block styling */
+/* ── Typography ── */
+h1, h2, h3, h4 {
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  letter-spacing: -0.02em;
+}
+
+/* ── Gradient Divider ── */
+.gradient-divider {
+  height: 1px;
+  background: linear-gradient(90deg, transparent 0%, var(--accent) 30%, var(--violet) 70%, transparent 100%);
+  opacity: 0.3;
+}
+
+/* ── Code Block ── */
 .code-block {
   background: var(--code-bg);
   border: 1px solid var(--border);
-  border-radius: 8px;
-  overflow-x: auto;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 0 20px rgba(0, 240, 255, 0.04), 0 4px 20px rgba(0, 0, 0, 0.3);
+  transition: box-shadow 0.3s ease;
+}
+
+.code-block:hover {
+  box-shadow: 0 0 30px rgba(0, 240, 255, 0.08), 0 4px 30px rgba(0, 0, 0, 0.4);
+}
+
+/* Terminal title bar */
+.code-block .terminal-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: var(--terminal-bar);
+  border-bottom: 1px solid var(--border);
+}
+
+.code-block .terminal-dots {
+  display: flex;
+  gap: 6px;
+}
+
+.code-block .terminal-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.code-block .terminal-dot.red { background: #ff5f57; }
+.code-block .terminal-dot.yellow { background: #febc2e; }
+.code-block .terminal-dot.green { background: #28c840; }
+
+.code-block .terminal-filename {
+  margin-left: 8px;
+  font-size: 0.75rem;
+  color: var(--muted);
+  font-family: 'JetBrains Mono', monospace;
 }
 
 .code-block pre {
   padding: 1.25rem;
-  font-size: 0.875rem;
-  line-height: 1.7;
-  font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+  font-size: 0.8125rem;
+  line-height: 1.75;
+  font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+  overflow-x: auto;
 }
 
-/* Syntax colors */
+.code-block .line-numbers {
+  display: inline-block;
+  width: 2.5em;
+  text-align: right;
+  padding-right: 1em;
+  color: rgba(107, 114, 128, 0.4);
+  user-select: none;
+  font-size: 0.75rem;
+}
+
+/* ── Syntax Colors (new palette) ── */
 .token-keyword { color: #c792ea; }
-.token-string { color: #c3e88d; }
-.token-comment { color: #546e7a; }
-.token-function { color: #82aaff; }
-.token-type { color: #ffcb6b; }
-.token-property { color: #f78c6c; }
-.token-punctuation { color: #89ddff; }
+.token-string { color: #7ee787; }
+.token-comment { color: #484f58; font-style: italic; }
+.token-function { color: #79c0ff; }
+.token-type { color: #ffa657; }
+.token-property { color: #ff7b72; }
+.token-punctuation { color: #00f0ff; }
+
+/* ── Animations ── */
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes pulseGlow {
+  0%, 100% {
+    box-shadow: 0 0 4px rgba(0, 240, 255, 0.2);
+  }
+  50% {
+    box-shadow: 0 0 12px rgba(0, 240, 255, 0.4);
+  }
+}
+
+@keyframes gradientShift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+
+@keyframes countUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes statusPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* Animation utility classes */
+.animate-fade-up {
+  animation: fadeUp 0.6s ease-out both;
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.5s ease-out both;
+}
+
+.animate-slide-in {
+  animation: slideInLeft 0.5s ease-out both;
+}
+
+.animate-pulse-glow {
+  animation: pulseGlow 2s ease-in-out infinite;
+}
+
+.animate-gradient {
+  background-size: 200% 200%;
+  animation: gradientShift 6s ease infinite;
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+.animate-status-pulse {
+  animation: statusPulse 2s ease-in-out infinite;
+}
+
+/* Stagger delays */
+.delay-100 { animation-delay: 100ms; }
+.delay-200 { animation-delay: 200ms; }
+.delay-300 { animation-delay: 300ms; }
+.delay-400 { animation-delay: 400ms; }
+.delay-500 { animation-delay: 500ms; }
+.delay-600 { animation-delay: 600ms; }
+.delay-700 { animation-delay: 700ms; }
+.delay-800 { animation-delay: 800ms; }
+
+/* ── Card Effects ── */
+.card-hover {
+  transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+}
+
+.card-hover:hover {
+  transform: translateY(-2px);
+  border-color: var(--border-bright);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3), 0 0 20px var(--accent-glow);
+}
+
+.card-tilt {
+  transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+  transform-style: preserve-3d;
+  perspective: 800px;
+}
+
+.card-tilt:hover {
+  transform: perspective(800px) rotateX(2deg) rotateY(-2deg) translateY(-4px);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+}
+
+/* ── Glow Border ── */
+.glow-border {
+  position: relative;
+}
+
+.glow-border::after {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(135deg, var(--accent), var(--violet), transparent, transparent);
+  mask: linear-gradient(#000, #000) content-box, linear-gradient(#000, #000);
+  mask-composite: exclude;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+}
+
+.glow-border:hover::after {
+  opacity: 1;
+}
+
+/* ── Install Command Glow ── */
+.install-cmd {
+  transition: box-shadow 0.3s ease, border-color 0.3s ease;
+}
+
+.install-cmd:hover {
+  border-color: var(--accent);
+  box-shadow: 0 0 20px rgba(0, 240, 255, 0.1);
+}
+
+/* ── Stats Counter ── */
+.stat-number {
+  font-family: 'JetBrains Mono', monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Stage Badge ── */
+.stage-badge {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.625rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--border-bright);
+}

@@ -1,3 +1,6 @@
+'use client';
+
+import { useEffect, useRef, useState } from 'react';
 import CodeBlock from './CodeBlock';
 
 const quickStartCode = `import { ShoppingAgent, GeminiAdapter, MockMerchant } from '@agorio/sdk';
@@ -32,25 +35,39 @@ console.log(result.checkout?.total);     // { amount: "95.98", currency: "USD" }
 await merchant.stop();`;
 
 export default function QuickStart() {
+  const ref = useRef<HTMLDivElement>(null);
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => { if (entry.isIntersecting) { setVisible(true); observer.disconnect(); } },
+      { threshold: 0.1 }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
   return (
-    <section className="px-6 py-20 max-w-4xl mx-auto">
-      <h2 className="text-3xl font-bold text-center mb-4">
+    <section ref={ref} className="px-6 py-20 max-w-4xl mx-auto">
+      <h2 className={`text-3xl font-bold text-center mb-4 ${visible ? 'animate-fade-up' : 'opacity-0'}`}>
         Quick Start
       </h2>
-      <p className="text-center text-[var(--muted)] mb-10">
+      <p className={`text-center text-[var(--muted)] mb-10 ${visible ? 'animate-fade-up delay-100' : 'opacity-0'}`}>
         From zero to a working shopping agent in under a minute.
       </p>
 
-      <div className="space-y-4">
-        <div className="flex items-center gap-3 px-4 py-3 bg-[var(--card)] border border-[var(--border)] rounded-lg font-mono text-sm">
-          <span className="text-[var(--muted)]">$</span>
+      <div className={`space-y-4 ${visible ? 'animate-fade-up delay-200' : 'opacity-0'}`}>
+        <div className="install-cmd flex items-center gap-3 px-4 py-3 bg-[var(--card)] border border-[var(--border)] rounded-xl font-mono text-sm">
+          <span className="text-[var(--accent)]">$</span>
           <span>npm install @agorio/sdk</span>
         </div>
 
         <CodeBlock code={quickStartCode} filename="my-agent.ts" />
       </div>
 
-      <p className="text-center text-sm text-[var(--muted)] mt-8">
+      <p className={`text-center text-sm text-[var(--muted)] mt-8 ${visible ? 'animate-fade-up delay-300' : 'opacity-0'}`}>
         See the full{' '}
         <a
           href="https://github.com/Nolpak14/agorio#quick-start"

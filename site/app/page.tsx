@@ -1,4 +1,5 @@
 import Hero from '@/components/Hero';
+import StatsBar from '@/components/StatsBar';
 import WhyAgorio from '@/components/WhyAgorio';
 import Adapters from '@/components/Adapters';
 import Features from '@/components/Features';
@@ -10,15 +11,17 @@ export default function Home() {
   return (
     <main>
       <Hero />
-      <div className="border-t border-[var(--border)]" />
+      <div className="gradient-divider" />
+      <StatsBar />
+      <div className="gradient-divider" />
       <WhyAgorio />
-      <div className="border-t border-[var(--border)]" />
+      <div className="gradient-divider" />
       <Adapters />
-      <div className="border-t border-[var(--border)]" />
+      <div className="gradient-divider" />
       <Features />
-      <div className="border-t border-[var(--border)]" />
+      <div className="gradient-divider" />
       <Tools />
-      <div className="border-t border-[var(--border)]" />
+      <div className="gradient-divider" />
       <QuickStart />
       <Footer />
     </main>
