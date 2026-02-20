@@ -266,6 +266,42 @@ export type LlmStreamChunk =
   | { type: 'tool_call_complete'; toolCall: ToolCall }
   | { type: 'done'; response: LlmResponse };
 
+// ─── Observability Types ───
+
+export interface AgentLogEvent {
+  level: 'debug' | 'info' | 'warn' | 'error';
+  message: string;
+  data?: Record<string, unknown>;
+  timestamp: number;
+}
+
+export interface AgentSpan {
+  name: string;
+  attributes?: Record<string, string | number | boolean>;
+  end(): void;
+}
+
+export interface AgentTracer {
+  startSpan(name: string, attributes?: Record<string, string | number | boolean>): AgentSpan;
+}
+
+export interface AgentUsageSummary {
+  /** Total tokens consumed across all LLM calls */
+  totalTokens: number;
+  /** Total prompt tokens */
+  promptTokens: number;
+  /** Total completion tokens */
+  completionTokens: number;
+  /** Number of LLM chat() calls */
+  llmCalls: number;
+  /** Number of tool executions */
+  toolCalls: number;
+  /** Latency per tool call in ms, keyed by tool name */
+  toolCallLatency: Record<string, number[]>;
+  /** Total wall-clock time for the agent run in ms */
+  totalLatencyMs: number;
+}
+
 // ─── Plugin Types ───
 
 export interface AgentPlugin {
@@ -296,6 +332,10 @@ export interface AgentOptions {
   verbose?: boolean;
   /** Callback for each agent step */
   onStep?: (step: AgentStep) => void;
+  /** Structured log callback for observability */
+  onLog?: (event: AgentLogEvent) => void;
+  /** OpenTelemetry-compatible tracer (opt-in, no hard dependency) */
+  tracer?: AgentTracer;
 }
 
 export interface AgentStep {
@@ -318,6 +358,7 @@ export interface AgentResult {
     profile: UcpProfile;
   };
   checkout?: CheckoutResult;
+  usage?: AgentUsageSummary;
   error?: string;
 }
 

@@ -16,6 +16,8 @@ import type {
   AgentResult,
   AgentStep,
   AgentStreamEvent,
+  AgentLogEvent,
+  AgentUsageSummary,
   AcpCheckoutSession,
   ChatMessage,
   ToolCall,
@@ -45,6 +47,14 @@ export class ShoppingAgent {
   // Protocol state
   private protocol: 'ucp' | 'acp' | null = null;
   private acpBaseUrl: string | null = null;
+
+  // Observability state
+  private runStartTime = 0;
+  private totalPromptTokens = 0;
+  private totalCompletionTokens = 0;
+  private llmCallCount = 0;
+  private toolCallCount = 0;
+  private toolCallLatency: Record<string, number[]> = {};
 
   // Shopping state
   private cart: CartItem[] = [];
@@ -97,20 +107,29 @@ export class ShoppingAgent {
    * to interact with the UCP merchant, and return the final result.
    */
   async run(task: string): Promise<AgentResult> {
+    this.resetMetrics();
+    const runSpan = this.options.tracer?.startSpan('agent.run', { task: task.slice(0, 100) });
+
     const messages: ChatMessage[] = [
       { role: 'user', content: task },
     ];
 
     this.iteration = 0;
+    this.emitLog('info', 'Agent run started', { task: task.slice(0, 200) });
 
     while (this.iteration < this.options.maxIterations) {
       this.iteration++;
 
       // Ask the LLM what to do next
+      const llmStart = Date.now();
+      const llmSpan = this.options.tracer?.startSpan('agent.llm_call', { iteration: this.iteration });
       const llmResponse = await this.options.llm.chat(
         messages,
         this.allTools
       );
+      const llmLatency = Date.now() - llmStart;
+      llmSpan?.end();
+      this.trackLlmUsage(llmResponse.usage, llmLatency);
 
       // Record thinking step
       if (llmResponse.content) {
@@ -123,6 +142,8 @@ export class ShoppingAgent {
 
       // If no tool calls, the agent is done
       if (llmResponse.finishReason === 'stop' || llmResponse.toolCalls.length === 0) {
+        this.emitLog('info', 'Agent run completed', { iterations: this.iteration, success: true });
+        runSpan?.end();
         return this.buildResult(true, llmResponse.content);
       }
 
@@ -142,12 +163,18 @@ export class ShoppingAgent {
         });
         this.log(`[Tool] ${toolCall.name}(${JSON.stringify(toolCall.arguments)})`);
 
+        const toolStart = Date.now();
+        const toolSpan = this.options.tracer?.startSpan('agent.tool_call', { tool: toolCall.name });
         let result: unknown;
         try {
           result = await this.executeTool(toolCall);
         } catch (err) {
           result = { error: err instanceof Error ? err.message : String(err) };
+          this.emitLog('warn', `Tool ${toolCall.name} failed`, { error: (result as Record<string, unknown>).error });
         }
+        const toolLatency = Date.now() - toolStart;
+        toolSpan?.end();
+        this.trackToolCall(toolCall.name, toolLatency);
 
         this.recordStep({
           type: 'tool_result',
@@ -155,6 +182,7 @@ export class ShoppingAgent {
           toolOutput: result,
         });
         this.log(`[Result] ${JSON.stringify(result).slice(0, 200)}`);
+        this.emitLog('debug', `Tool ${toolCall.name} completed`, { latencyMs: toolLatency });
 
         // Add tool result to message history
         messages.push({
@@ -166,6 +194,8 @@ export class ShoppingAgent {
     }
 
     // Max iterations reached
+    this.emitLog('warn', 'Agent reached max iterations', { maxIterations: this.options.maxIterations });
+    runSpan?.end();
     return this.buildResult(
       false,
       `Agent reached maximum iterations (${this.options.maxIterations}) without completing the task.`
@@ -180,6 +210,9 @@ export class ShoppingAgent {
    * Otherwise, falls back to chat() and emits the full text as a single delta.
    */
   async *runStream(task: string): AsyncGenerator<AgentStreamEvent> {
+    this.resetMetrics();
+    const runSpan = this.options.tracer?.startSpan('agent.runStream', { task: task.slice(0, 100) });
+
     const messages: ChatMessage[] = [
       { role: 'user', content: task },
     ];
@@ -187,6 +220,7 @@ export class ShoppingAgent {
     this.iteration = 0;
     const adapter = this.options.llm;
     const supportsStreaming = typeof adapter.chatStream === 'function';
+    this.emitLog('info', 'Agent stream started', { task: task.slice(0, 200) });
 
     try {
       while (this.iteration < this.options.maxIterations) {
@@ -195,7 +229,11 @@ export class ShoppingAgent {
         let textContent = '';
         let toolCalls: ToolCall[] = [];
 
+        const llmStart = Date.now();
+        const llmSpan = this.options.tracer?.startSpan('agent.llm_call', { iteration: this.iteration, streaming: supportsStreaming });
+
         if (supportsStreaming) {
+          let streamUsage: { promptTokens: number; completionTokens: number; totalTokens: number } | undefined;
           for await (const chunk of adapter.chatStream!(messages, this.allTools)) {
             switch (chunk.type) {
               case 'text_delta':
@@ -215,11 +253,18 @@ export class ShoppingAgent {
                 toolCalls = chunk.response.toolCalls.length > 0
                   ? chunk.response.toolCalls
                   : toolCalls;
+                streamUsage = chunk.response.usage;
                 break;
             }
           }
+          const llmLatency = Date.now() - llmStart;
+          llmSpan?.end();
+          this.trackLlmUsage(streamUsage, llmLatency);
         } else {
           const response = await adapter.chat(messages, this.allTools);
+          const llmLatency = Date.now() - llmStart;
+          llmSpan?.end();
+          this.trackLlmUsage(response.usage, llmLatency);
           textContent = response.content;
           toolCalls = response.toolCalls;
 
@@ -241,6 +286,8 @@ export class ShoppingAgent {
 
         // If no tool calls, the agent is done
         if (toolCalls.length === 0) {
+          this.emitLog('info', 'Agent stream completed', { iterations: this.iteration, success: true });
+          runSpan?.end();
           const result = this.buildResult(true, textContent);
           yield { type: 'done', result, iteration: this.iteration, timestamp: Date.now() };
           return;
@@ -270,12 +317,18 @@ export class ShoppingAgent {
             timestamp: Date.now(),
           };
 
+          const toolStart = Date.now();
+          const toolSpan = this.options.tracer?.startSpan('agent.tool_call', { tool: toolCall.name });
           let result: unknown;
           try {
             result = await this.executeTool(toolCall);
           } catch (err) {
             result = { error: err instanceof Error ? err.message : String(err) };
+            this.emitLog('warn', `Tool ${toolCall.name} failed`, { error: (result as Record<string, unknown>).error });
           }
+          const toolLatency = Date.now() - toolStart;
+          toolSpan?.end();
+          this.trackToolCall(toolCall.name, toolLatency);
 
           this.recordStep({
             type: 'tool_result',
@@ -283,6 +336,7 @@ export class ShoppingAgent {
             toolOutput: result,
           });
           this.log(`[Result] ${JSON.stringify(result).slice(0, 200)}`);
+          this.emitLog('debug', `Tool ${toolCall.name} completed`, { latencyMs: toolLatency });
 
           yield {
             type: 'tool_result',
@@ -301,12 +355,16 @@ export class ShoppingAgent {
       }
 
       // Max iterations reached
+      this.emitLog('warn', 'Agent reached max iterations', { maxIterations: this.options.maxIterations });
+      runSpan?.end();
       const result = this.buildResult(
         false,
         `Agent reached maximum iterations (${this.options.maxIterations}) without completing the task.`
       );
       yield { type: 'done', result, iteration: this.iteration, timestamp: Date.now() };
     } catch (err) {
+      this.emitLog('error', 'Agent stream error', { error: err instanceof Error ? err.message : String(err) });
+      runSpan?.end();
       yield {
         type: 'error',
         iteration: this.iteration,
@@ -840,6 +898,66 @@ export class ShoppingAgent {
     return { order };
   }
 
+  // ─── Observability Helpers ───
+
+  private resetMetrics(): void {
+    this.runStartTime = Date.now();
+    this.totalPromptTokens = 0;
+    this.totalCompletionTokens = 0;
+    this.llmCallCount = 0;
+    this.toolCallCount = 0;
+    this.toolCallLatency = {};
+  }
+
+  private trackLlmUsage(
+    usage: { promptTokens: number; completionTokens: number; totalTokens: number } | undefined,
+    latencyMs: number
+  ): void {
+    this.llmCallCount++;
+    if (usage) {
+      this.totalPromptTokens += usage.promptTokens;
+      this.totalCompletionTokens += usage.completionTokens;
+    }
+    this.emitLog('debug', 'LLM call completed', {
+      latencyMs,
+      promptTokens: usage?.promptTokens ?? 0,
+      completionTokens: usage?.completionTokens ?? 0,
+    });
+  }
+
+  private trackToolCall(toolName: string, latencyMs: number): void {
+    this.toolCallCount++;
+    if (!this.toolCallLatency[toolName]) {
+      this.toolCallLatency[toolName] = [];
+    }
+    this.toolCallLatency[toolName].push(latencyMs);
+  }
+
+  private buildUsageSummary(): AgentUsageSummary {
+    return {
+      totalTokens: this.totalPromptTokens + this.totalCompletionTokens,
+      promptTokens: this.totalPromptTokens,
+      completionTokens: this.totalCompletionTokens,
+      llmCalls: this.llmCallCount,
+      toolCalls: this.toolCallCount,
+      toolCallLatency: { ...this.toolCallLatency },
+      totalLatencyMs: Date.now() - this.runStartTime,
+    };
+  }
+
+  private emitLog(
+    level: AgentLogEvent['level'],
+    message: string,
+    data?: Record<string, unknown>
+  ): void {
+    this.options.onLog?.({
+      level,
+      message,
+      data,
+      timestamp: Date.now(),
+    });
+  }
+
   // ─── Helpers ───
 
   private calculateSubtotal(): MoneyAmount {
@@ -909,6 +1027,7 @@ export class ShoppingAgent {
       iterations: this.iteration,
       merchant: discovery ?? undefined,
       checkout,
+      usage: this.buildUsageSummary(),
     };
   }
 
