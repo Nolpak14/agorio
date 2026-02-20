@@ -160,6 +160,30 @@ export interface MockAcpMerchantOptions {
   apiKey?: string;
 }
 
+// ─── Transport Types ───
+
+export type TransportPreference = 'auto' | 'rest' | 'mcp';
+
+export interface McpClientOptions {
+  /** MCP JSON-RPC endpoint URL */
+  endpoint: string;
+  /** Request timeout in ms (default: 30000) */
+  timeoutMs?: number;
+  /** Custom fetch implementation for testing */
+  fetch?: typeof globalThis.fetch;
+  /** Custom headers to include in all requests */
+  headers?: Record<string, string>;
+}
+
+export interface MockMcpMerchantOptions {
+  /** Port to listen on (default: 0 for random) */
+  port?: number;
+  /** Merchant name */
+  name?: string;
+  /** Product catalog */
+  products?: MockProduct[];
+}
+
 // ─── SDK Client Types ───
 
 export interface UcpClientOptions {
@@ -169,6 +193,8 @@ export interface UcpClientOptions {
   fetch?: typeof globalThis.fetch;
   /** Custom headers to include in all requests */
   headers?: Record<string, string>;
+  /** Transport preference: 'auto' tries MCP then REST, 'rest' or 'mcp' forces one (default: 'auto') */
+  preferredTransport?: TransportPreference;
 }
 
 export interface DiscoveryResult {
