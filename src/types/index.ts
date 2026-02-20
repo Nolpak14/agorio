@@ -266,6 +266,19 @@ export type LlmStreamChunk =
   | { type: 'tool_call_complete'; toolCall: ToolCall }
   | { type: 'done'; response: LlmResponse };
 
+// ─── Plugin Types ───
+
+export interface AgentPlugin {
+  /** Tool name the LLM will call (must not collide with built-in tools) */
+  name: string;
+  /** Description shown to the LLM for function calling */
+  description: string;
+  /** JSON Schema for the tool parameters */
+  parameters: Record<string, unknown>;
+  /** Async handler that executes when the LLM calls this tool */
+  handler: (args: Record<string, unknown>) => Promise<unknown> | unknown;
+}
+
 // ─── Agent Types ───
 
 export interface AgentOptions {
@@ -275,6 +288,8 @@ export interface AgentOptions {
   clientOptions?: UcpClientOptions;
   /** ACP client options (enables ACP protocol support) */
   acpOptions?: AcpClientOptions;
+  /** Custom plugins — additional tools beyond the built-in 12 */
+  plugins?: AgentPlugin[];
   /** Maximum agent loop iterations (default: 20) */
   maxIterations?: number;
   /** Enable verbose logging */

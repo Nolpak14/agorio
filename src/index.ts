@@ -97,6 +97,7 @@ export type {
 
   // Agent types
   AgentOptions,
+  AgentPlugin,
   AgentStep,
   AgentStreamEvent,
   AgentResult,
