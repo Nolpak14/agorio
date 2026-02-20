@@ -19,6 +19,12 @@ const adapters = [
     color: '#10B981',
     code: `new OpenAIAdapter({ apiKey: process.env.OPENAI_API_KEY })`,
   },
+  {
+    name: 'Ollama (Local)',
+    className: 'OllamaAdapter',
+    color: '#8B5CF6',
+    code: `new OllamaAdapter({ model: 'llama3.1' })`,
+  },
 ];
 
 const swapCode = `// Swap your LLM with a single line — zero code changes
@@ -26,6 +32,7 @@ const agent = new ShoppingAgent({
   llm: new GeminiAdapter({ apiKey: process.env.GEMINI_API_KEY }),
   // llm: new ClaudeAdapter({ apiKey: process.env.ANTHROPIC_API_KEY }),
   // llm: new OpenAIAdapter({ apiKey: process.env.OPENAI_API_KEY }),
+  // llm: new OllamaAdapter({ model: 'llama3.1' }), // fully local
 });
 
 // Stream results in real time
@@ -40,14 +47,14 @@ export default function Adapters() {
         Works with any LLM
       </h2>
       <p className="text-center text-[var(--muted)] mb-12 max-w-2xl mx-auto">
-        Three adapters ship out of the box — all with streaming support. Implement the{' '}
+        Four adapters ship out of the box — all with streaming support. Use Ollama for fully local agents. Implement the{' '}
         <code className="text-[var(--accent)] bg-[var(--code-bg)] px-1.5 py-0.5 rounded text-xs">
           LlmAdapter
         </code>{' '}
         interface to bring your own.
       </p>
 
-      <div className="grid sm:grid-cols-3 gap-4 mb-10">
+      <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
         {adapters.map((a) => (
           <div
             key={a.name}

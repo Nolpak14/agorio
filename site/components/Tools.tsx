@@ -21,7 +21,15 @@ export default function Tools() {
       </h2>
       <p className="text-center text-[var(--muted)] mb-12 max-w-2xl mx-auto">
         Every tool the agent needs for the full shopping workflow — UCP and ACP,
-        from discovery to order tracking.
+        from discovery to order tracking. Need more?{' '}
+        <a
+          href="https://github.com/Nolpak14/agorio#add-custom-tools-with-plugins"
+          className="text-[var(--accent)] hover:underline"
+          target="_blank"
+          rel="noopener"
+        >
+          Add custom tools with plugins
+        </a>.
       </p>
 
       <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">

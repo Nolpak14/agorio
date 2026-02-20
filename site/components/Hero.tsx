@@ -25,7 +25,7 @@ export default function Hero() {
         <div>
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-[var(--border)] text-sm text-[var(--muted)] mb-6">
             <span className="w-2 h-2 rounded-full bg-emerald-500" />
-            v0.3 — UCP + ACP · Streaming · Gemini, Claude, OpenAI
+            v0.3 — UCP + ACP + MCP · CLI · Plugins · 4 LLM Adapters
           </div>
 
           <h1 className="text-4xl sm:text-5xl font-bold leading-tight tracking-tight mb-6">

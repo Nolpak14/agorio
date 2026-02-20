@@ -26,12 +26,17 @@
   "keywords": [
     "ucp",
     "acp",
+    "mcp",
     "shopping-agent",
     "ai-agent",
     "agentic-commerce",
     "gemini",
     "claude",
     "openai",
+    "ollama",
+    "cli",
+    "plugin",
+    "observability",
     "universal-commerce-protocol",
     "agentic-commerce-protocol"
   ],

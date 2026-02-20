@@ -82,13 +82,26 @@ The core library. Everything below ships in a single package.
 
 **AcpClient** -- Manages ACP checkout sessions (create, get, update, complete, cancel) with Bearer token authentication, API versioning, and request tracing. Works with any ACP-compliant merchant.
 
-**LLM Adapters** -- Provider-agnostic interface. Ships with Gemini, Claude, and OpenAI adapters, all with full function calling and streaming support.
+**McpClient** -- JSON-RPC 2.0 client for MCP (Model Context Protocol) transport. Automatic transport detection: when a merchant declares MCP transport, the SDK uses it; otherwise falls back to REST. No configuration needed.
+
+**LLM Adapters** -- Provider-agnostic interface. Ships with Gemini, Claude, OpenAI, and Ollama adapters, all with full function calling and streaming support. Ollama enables fully local/offline agents.
+
+**Plugin System** -- Extend the agent with custom tools beyond the built-in 12. Register plugins with name, description, JSON Schema parameters, and an async handler. Name collision detection prevents conflicts with built-in tools.
+
+**Observability** -- Structured logging via `onLog` callback, OpenTelemetry-compatible tracing via opt-in `tracer` interface (no hard dependency), and automatic usage metrics (token counts, tool call latency, total wall-clock time) on every `AgentResult`.
+
+**CLI Tool (`npx agorio`)** -- Developer CLI for common tasks:
+- `agorio mock` — start UCP, ACP, or MCP mock merchants
+- `agorio discover <domain>` — discover merchant protocol and capabilities
+- `agorio init [dir]` — scaffold a new agent project
 
 **MockMerchant** -- A complete UCP-compliant Express server for testing. Serves a UCP profile at `/.well-known/ucp`, OpenAPI schema, product CRUD, search with filtering, full checkout flow with session management, and order tracking. Configurable latency and error rate for chaos testing.
 
 **MockAcpMerchant** -- An ACP-compliant Express server for testing. Serves product catalog endpoints and all 5 ACP checkout session endpoints with Bearer auth, checkout state machine, and payment simulation.
 
-### 12 Built-in Shopping Tools
+**MockMcpMerchant** -- An MCP-only merchant server for testing JSON-RPC transport. Serves UCP profile with MCP transport binding and implements all shopping methods via JSON-RPC 2.0.
+
+### 12 Built-in Shopping Tools (+ Plugins)
 
 These are the function calling tools available to the agent during its reasoning loop. Each maps to a UCP operation:
 
@@ -107,6 +120,8 @@ These are the function calling tools available to the agent during its reasoning
 | `submit_payment` | Complete payment and receive order confirmation |
 | `get_order_status` | Check status of an existing order |
 
+Need more? Add custom tools via the [plugin system](#plugin-system).
+
 ---
 
 ## Quick Start
@@ -118,11 +133,20 @@ These are the function calling tools available to the agent during its reasoning
   - [Gemini](https://aistudio.google.com/apikey) (free tier available)
   - [OpenAI](https://platform.openai.com/api-keys)
   - [Anthropic](https://console.anthropic.com/)
+  - Or use [Ollama](https://ollama.com/) for fully local/offline agents (no API key needed)
 
 ### Install
 
 ```bash
 npm install @agorio/sdk
+```
+
+### Scaffold a new project (optional)
+
+```bash
+npx agorio init my-agent
+cd my-agent
+npm install
 ```
 
 ### Run your first agent
@@ -132,6 +156,7 @@ import { ShoppingAgent, GeminiAdapter, MockMerchant } from '@agorio/sdk';
 // Or use any adapter:
 // import { ClaudeAdapter } from '@agorio/sdk';
 // import { OpenAIAdapter } from '@agorio/sdk';
+// import { OllamaAdapter } from '@agorio/sdk';  // local, no API key
 
 // 1. Start a mock merchant (UCP-compliant test server)
 const merchant = new MockMerchant({ name: 'TechShop' });
@@ -144,9 +169,10 @@ const agent = new ShoppingAgent({
     model: 'gemini-2.0-flash',   // default
     temperature: 0.7,
   }),
-  // Or swap in Claude/OpenAI with zero code changes:
+  // Or swap in Claude/OpenAI/Ollama with zero code changes:
   // llm: new ClaudeAdapter({ apiKey: process.env.ANTHROPIC_API_KEY }),
   // llm: new OpenAIAdapter({ apiKey: process.env.OPENAI_API_KEY }),
+  // llm: new OllamaAdapter({ model: 'llama3.1' }),  // fully local
   verbose: true,  // logs each think/tool/result step
   maxIterations: 20,
   onStep: (step) => {
@@ -225,6 +251,65 @@ const merchant = new MockMerchant({
 });
 ```
 
+### Use the CLI
+
+```bash
+# Start a mock merchant for quick testing
+npx agorio mock                    # UCP merchant on port 3456
+npx agorio mock --acp --port 4000  # ACP merchant on port 4000
+npx agorio mock --mcp              # MCP merchant (JSON-RPC transport)
+
+# Discover a merchant's capabilities
+npx agorio discover localhost:3456
+
+# Scaffold a new project
+npx agorio init my-agent
+```
+
+### Add custom tools with plugins
+
+```typescript
+const agent = new ShoppingAgent({
+  llm: new GeminiAdapter({ apiKey: process.env.GEMINI_API_KEY }),
+  plugins: [
+    {
+      name: 'check_price_history',
+      description: 'Check historical prices for a product',
+      parameters: {
+        type: 'object',
+        properties: {
+          productId: { type: 'string', description: 'Product ID to check' },
+        },
+        required: ['productId'],
+      },
+      handler: async ({ productId }) => {
+        // Your custom logic here
+        return { prices: [{ date: '2026-01-01', price: '$89.99' }] };
+      },
+    },
+  ],
+});
+```
+
+### Add observability
+
+```typescript
+const agent = new ShoppingAgent({
+  llm: adapter,
+  onLog: (event) => {
+    // Structured log events: level, message, data, timestamp
+    console.log(`[${event.level}] ${event.message}`);
+  },
+  tracer: myOpenTelemetryTracer, // optional, OTel-compatible
+});
+
+const result = await agent.run('Buy headphones from shop.example.com');
+console.log(result.usage?.totalTokens);     // Total tokens consumed
+console.log(result.usage?.llmCalls);         // Number of LLM roundtrips
+console.log(result.usage?.toolCallLatency);  // Per-tool latency in ms
+console.log(result.usage?.totalLatencyMs);   // Wall-clock time
+```
+
 ---
 
 ## Architecture
@@ -234,29 +319,38 @@ const merchant = new MockMerchant({
   |
   |-- agent/
   |     ShoppingAgent          # LLM-driven plan-act-observe loop
-  |                            # Manages cart, checkout, orders
+  |                            # Manages cart, checkout, orders, plugins
   |
   |-- client/
-  |     UcpClient              # UCP discovery + REST/MCP/A2A client
+  |     UcpClient              # UCP discovery + REST/MCP auto-transport
   |     AcpClient              # ACP checkout session client
+  |     McpClient              # JSON-RPC 2.0 client for MCP transport
   |
   |-- llm/
   |     LlmAdapter (interface) # Provider-agnostic LLM contract
   |     GeminiAdapter          # Google Gemini with function calling
   |     ClaudeAdapter          # Anthropic Claude with function calling
   |     OpenAIAdapter          # OpenAI GPT with function calling
+  |     OllamaAdapter          # Ollama for local/offline agents
   |     tools.ts               # 12 shopping tool definitions (JSON Schema)
+  |
+  |-- cli/
+  |     agorio mock            # Start mock merchants (UCP/ACP/MCP)
+  |     agorio discover        # Discover merchant capabilities
+  |     agorio init            # Scaffold new agent project
   |
   |-- mock/
   |     MockMerchant           # Full UCP-compliant Express test server
   |     MockAcpMerchant        # Full ACP-compliant Express test server
+  |     MockMcpMerchant        # MCP-only Express test server (JSON-RPC)
   |     fixtures.ts            # 10-product catalog + UCP profile builder
   |
   |-- types/
-        UcpProfile, UcpService, UcpCapability
+        UcpProfile, UcpService, UcpCapability, McpClientOptions
         AcpCheckoutSession, AcpClient, AcpLineItem
         LlmAdapter, ChatMessage, ToolCall, LlmStreamChunk
         AgentOptions, AgentResult, AgentStep, AgentStreamEvent
+        AgentPlugin, AgentLogEvent, AgentTracer, AgentUsageSummary
         CartItem, CheckoutResult, MockProduct
 ```
 
@@ -281,7 +375,7 @@ Any LLM that supports function calling can implement this interface. The `Shoppi
 | Google Gemini | `GeminiAdapter` | Available | Native |
 | Anthropic Claude | `ClaudeAdapter` | Available | Native |
 | OpenAI / ChatGPT | `OpenAIAdapter` | Available | Native |
-| Ollama (local) | `OllamaAdapter` | Planned | Via tool use |
+| Ollama (local) | `OllamaAdapter` | Available | Via tool use |
 | Any provider | Implement `LlmAdapter` | Build your own | Any |
 
 To build your own adapter, implement the `LlmAdapter` interface and pass it to `ShoppingAgent`. See the [Gemini adapter source](src/llm/gemini.ts) for a reference implementation.
@@ -290,7 +384,7 @@ To build your own adapter, implement the `LlmAdapter` interface and pass it to `
 
 ## Testing
 
-Agorio uses [Vitest](https://vitest.dev/) and ships with 113 tests covering the UCP client, ACP client, mock merchants, agent orchestration, streaming, and all three LLM adapters.
+Agorio uses [Vitest](https://vitest.dev/) and ships with 191 tests covering the UCP client, ACP client, MCP transport, mock merchants, agent orchestration, plugins, observability, streaming, CLI, and all four LLM adapters.
 
 ```bash
 # Run all tests
@@ -339,6 +433,16 @@ describe('my agent', () => {
 
 ## Roadmap
 
+### Shipped (v0.3)
+- [x] MCP transport support — JSON-RPC 2.0 client with auto transport detection (MCP → REST fallback)
+- [x] Plugin system — extend the agent with custom tools (name collision detection, async handlers)
+- [x] Observability — structured logging (`onLog`), OpenTelemetry-compatible tracing (`tracer`), usage metrics on every result
+- [x] CLI tool (`npx agorio`) — mock, discover, init commands
+- [x] OllamaAdapter — run agents fully local/offline with any Ollama model
+- [x] Reference agents — deal finder, price comparison, product researcher
+- [x] MockMcpMerchant — MCP-only test server for JSON-RPC transport testing
+- [x] 191 tests passing across 13 test files
+
 ### Shipped (v0.2)
 - [x] ShoppingAgent with plan-act-observe loop
 - [x] UcpClient with discovery and REST API support
@@ -349,14 +453,12 @@ describe('my agent', () => {
 - [x] Dual-protocol ShoppingAgent — auto-detects UCP vs ACP on discovery
 - [x] MockMerchant with full UCP checkout flow
 - [x] 12 built-in shopping tools
-- [x] 113 tests passing
 
-### Next (v0.3)
+### Next (v0.4)
 - [ ] Multi-merchant comparison agent
-- [ ] Ollama adapter for local/offline agents
-- [ ] Reference agents: price comparison, product research, deal finder
-- [ ] MCP transport support (beyond REST)
 - [ ] Agent marketplace
+- [ ] Webhook support for async order updates
+- [ ] Browser-based agent playground
 
 ---
 
@@ -368,27 +470,40 @@ agorio/
     index.ts                    # Public API exports
     types/index.ts              # All TypeScript types
     client/
-      ucp-client.ts             # UCP discovery + REST client
+      ucp-client.ts             # UCP discovery + REST/MCP auto-transport
       acp-client.ts             # ACP checkout session client
+      mcp-client.ts             # JSON-RPC 2.0 client for MCP transport
     llm/
       gemini.ts                 # Google Gemini adapter (+ streaming)
       claude.ts                 # Anthropic Claude adapter (+ streaming)
       openai.ts                 # OpenAI GPT adapter (+ streaming)
+      ollama.ts                 # Ollama adapter for local models
       tools.ts                  # 12 shopping tool definitions
-    agent/shopping-agent.ts     # Agent orchestrator (dual-protocol)
+    agent/shopping-agent.ts     # Agent orchestrator (plugins, observability)
+    cli/
+      index.ts                  # CLI entry point (npx agorio)
+      commands/mock.ts          # agorio mock command
+      commands/discover.ts      # agorio discover command
+      commands/init.ts          # agorio init command
     mock/
       mock-merchant.ts          # UCP-compliant test server
       mock-acp-merchant.ts      # ACP-compliant test server
+      mock-mcp-merchant.ts      # MCP-only test server (JSON-RPC)
       fixtures.ts               # Product catalog + profile builder
   tests/
     ucp-client.test.ts          # 13 tests
+    mcp-client.test.ts          # 22 tests
     mock-merchant.test.ts       # 17 tests
     shopping-agent.test.ts      # 7 tests
+    plugin-system.test.ts       # 9 tests
+    observability.test.ts       # 13 tests
     claude-adapter.test.ts      # 18 tests
     openai-adapter.test.ts      # 18 tests
+    ollama-adapter.test.ts      # 21 tests
     streaming.test.ts           # 12 tests
     acp-client.test.ts          # 20 tests
     acp-agent.test.ts           # 8 tests
+    cli.test.ts                 # 13 tests
   package.json
   tsconfig.json
   vitest.config.ts
@@ -402,11 +517,11 @@ We welcome contributions. See [CONTRIBUTING.md](CONTRIBUTING.md) for setup instr
 
 Areas where contributions are especially valuable:
 
-- **LLM adapters** -- Ollama, Mistral, or any other provider
-- **Shopping tools** -- new tools for wishlists, reviews, returns, price alerts
+- **LLM adapters** -- Mistral, Cohere, or any other provider (implement `LlmAdapter`)
+- **Plugins** -- custom tools for wishlists, reviews, returns, price alerts
 - **Reference agents** -- example agents that demonstrate real use cases
 - **Documentation** -- tutorials, guides, examples
-- **Bug reports** -- especially around edge cases in UCP profile parsing
+- **Bug reports** -- especially around edge cases in UCP/MCP profile parsing
 
 ---
 

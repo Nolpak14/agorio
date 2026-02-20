@@ -1,6 +1,7 @@
 import Hero from '@/components/Hero';
 import WhyAgorio from '@/components/WhyAgorio';
 import Adapters from '@/components/Adapters';
+import Features from '@/components/Features';
 import QuickStart from '@/components/QuickStart';
 import Tools from '@/components/Tools';
 import Footer from '@/components/Footer';
@@ -13,6 +14,8 @@ export default function Home() {
       <WhyAgorio />
       <div className="border-t border-[var(--border)]" />
       <Adapters />
+      <div className="border-t border-[var(--border)]" />
+      <Features />
       <div className="border-t border-[var(--border)]" />
       <Tools />
       <div className="border-t border-[var(--border)]" />
