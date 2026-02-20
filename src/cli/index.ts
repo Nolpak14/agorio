@@ -15,7 +15,7 @@ import { mock } from './commands/mock.js';
 import { discover } from './commands/discover.js';
 import { init } from './commands/init.js';
 
-const VERSION = '0.3.0';
+const VERSION = '0.3.1';
 
 const HELP = `
 agorio — CLI for AI commerce agent development
