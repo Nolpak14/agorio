@@ -324,6 +324,8 @@ export interface AgentOptions {
   clientOptions?: UcpClientOptions;
   /** ACP client options (enables ACP protocol support) */
   acpOptions?: AcpClientOptions;
+  /** Merchant adapters for real e-commerce platform connectivity */
+  adapters?: MerchantAdapter[];
   /** Custom plugins — additional tools beyond the built-in 12 */
   plugins?: AgentPlugin[];
   /** Maximum agent loop iterations (default: 20) */
@@ -474,4 +476,134 @@ export type AgentToolName =
   | 'initiate_checkout'
   | 'submit_shipping'
   | 'submit_payment'
-  | 'get_order_status';
+  | 'get_order_status'
+  | 'switch_merchant'
+  | 'get_product_reviews'
+  | 'apply_discount_code'
+  | 'compare_prices';
+
+// ─── Merchant Adapter Types ───
+
+/**
+ * Discovery result from a merchant adapter.
+ */
+export interface MerchantAdapterDiscovery {
+  domain: string;
+  name: string;
+  protocol: 'adapter';
+  adapterType: string;
+  capabilities: string[];
+}
+
+/**
+ * Adapter interface for connecting to real e-commerce platforms.
+ * Implement this to add support for Shopify, WooCommerce, or any platform.
+ */
+export interface MerchantAdapter {
+  /** Human-readable adapter name (e.g., 'shopify', 'woocommerce') */
+  readonly adapterType: string;
+
+  /** Discover/connect to a merchant by domain */
+  discover(domain: string): Promise<MerchantAdapterDiscovery>;
+
+  /** List products from the catalog */
+  listProducts(options?: {
+    page?: number;
+    limit?: number;
+    category?: string;
+  }): Promise<{ products: MockProduct[]; total: number }>;
+
+  /** Search products by keyword */
+  searchProducts(
+    query: string,
+    limit?: number
+  ): Promise<{ products: MockProduct[]; total: number; query: string }>;
+
+  /** Get a single product by ID */
+  getProduct(productId: string): Promise<MockProduct>;
+
+  /** Get product reviews (optional) */
+  getProductReviews?(
+    productId: string,
+    limit?: number
+  ): Promise<ProductReviewResult>;
+
+  /** Create a checkout session (optional — not all adapters support purchase) */
+  createCheckout?(items: CartItem[]): Promise<{
+    sessionId: string;
+    totals: { subtotal: MoneyAmount; total: MoneyAmount };
+    shippingOptions?: Array<{
+      id: string;
+      name: string;
+      price: MoneyAmount;
+      estimatedDays: string;
+    }>;
+  }>;
+
+  /** Complete a checkout (optional) */
+  completeCheckout?(
+    sessionId: string,
+    payment: { method: string; token?: string },
+    shippingAddress: ShippingAddress
+  ): Promise<{ orderId: string; status: string }>;
+}
+
+// ─── Review Types ───
+
+export interface ProductReview {
+  id: string;
+  author: string;
+  rating: number;
+  title?: string;
+  body: string;
+  date: string;
+  verified?: boolean;
+}
+
+export interface ProductReviewResult {
+  productId: string;
+  averageRating: number;
+  totalReviews: number;
+  reviews: ProductReview[];
+}
+
+// ─── Multi-Merchant Types ───
+
+export interface MerchantContext {
+  domain: string;
+  protocol: 'ucp' | 'acp' | 'adapter';
+  adapter?: MerchantAdapter;
+  cart: CartItem[];
+  checkoutSessionId: string | null;
+  shippingAddress: ShippingAddress | null;
+  orders: Map<string, MockOrder>;
+  discoveryInfo?: Record<string, unknown>;
+}
+
+// ─── Webhook Types ───
+
+export interface WebhookServerOptions {
+  /** Port to listen on (default: 0 for random) */
+  port?: number;
+  /** HMAC secret for verifying webhook signatures */
+  secret?: string;
+  /** Callback for order update events */
+  onOrderUpdate?: (event: OrderUpdateEvent) => void;
+  /** Callback for any webhook event */
+  onEvent?: (event: WebhookEvent) => void;
+}
+
+export interface OrderUpdateEvent {
+  orderId: string;
+  previousStatus: string;
+  newStatus: string;
+  timestamp: string;
+  merchantDomain: string;
+  trackingNumber?: string;
+  metadata?: Record<string, unknown>;
+}
+
+export type WebhookEvent =
+  | { type: 'order.updated'; data: OrderUpdateEvent }
+  | { type: 'order.shipped'; data: OrderUpdateEvent }
+  | { type: 'order.delivered'; data: OrderUpdateEvent };

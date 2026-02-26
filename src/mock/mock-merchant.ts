@@ -209,6 +209,87 @@ export class MockMerchant {
       });
     });
 
+    // ─── Product Reviews API ───
+    app.get('/ucp/v1/products/:id/reviews', (req, res) => {
+      const product = this.products.find(p => p.id === req.params.id);
+      if (!product) {
+        res.status(404).json({ error: `Product not found: ${req.params.id}` });
+        return;
+      }
+
+      // Generate deterministic mock reviews based on product ID
+      const seed = req.params.id.length;
+      const ratings = [5, 4, 4, 5, 3];
+      const reviewers = ['Alex M.', 'Sam K.', 'Jordan T.', 'Casey R.', 'Pat L.'];
+      const reviews = reviewers.slice(0, Math.min(5, seed)).map((author, i) => ({
+        id: `rev_${req.params.id}_${i}`,
+        author,
+        rating: ratings[i],
+        title: `${ratings[i] === 5 ? 'Excellent' : ratings[i] === 4 ? 'Great' : 'Good'} product`,
+        body: `Really ${ratings[i] >= 4 ? 'happy' : 'satisfied'} with this ${product.name}. ${ratings[i] === 5 ? 'Highly recommend!' : 'Would buy again.'}`,
+        date: new Date(Date.now() - i * 86400000 * 7).toISOString().split('T')[0],
+        verified: i < 3,
+      }));
+
+      const avg = reviews.reduce((s, r) => s + r.rating, 0) / reviews.length;
+
+      res.json({
+        productId: req.params.id,
+        averageRating: Math.round(avg * 10) / 10,
+        totalReviews: reviews.length,
+        reviews,
+      });
+    });
+
+    // ─── Discount Code API ───
+    app.post('/ucp/v1/checkout/discount', (req, res) => {
+      const { sessionId, code } = req.body;
+
+      if (!sessionId) {
+        res.status(400).json({ error: 'Missing sessionId' });
+        return;
+      }
+
+      const session = this.checkoutSessions.get(sessionId);
+      if (!session) {
+        res.status(404).json({ error: 'Checkout session not found' });
+        return;
+      }
+
+      // Simulate discount codes
+      const discounts: Record<string, number> = {
+        'SAVE10': 0.10,
+        'SAVE20': 0.20,
+        'WELCOME': 0.15,
+        'FREESHIP': 0,
+      };
+
+      const discount = discounts[code?.toUpperCase()];
+      if (discount === undefined) {
+        res.status(400).json({ error: `Invalid discount code: ${code}` });
+        return;
+      }
+
+      const subtotal = session.items.reduce(
+        (sum, item) => sum + parseFloat(item.price.amount) * item.quantity,
+        0
+      );
+
+      const discountAmount = subtotal * discount;
+      const newTotal = subtotal - discountAmount;
+
+      res.json({
+        success: true,
+        code: code.toUpperCase(),
+        discount: {
+          type: 'percentage',
+          value: discount * 100,
+          amount: { amount: discountAmount.toFixed(2), currency: 'USD' },
+        },
+        newSubtotal: { amount: newTotal.toFixed(2), currency: 'USD' },
+      });
+    });
+
     // ─── Order API ───
     app.get('/ucp/v1/orders/:id', (req, res) => {
       const order = this.orders.get(req.params.id);
