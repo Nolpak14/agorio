@@ -62,6 +62,10 @@ export class ShoppingAgent {
   // Adapters for real merchant connectivity
   private readonly adapters: MerchantAdapter[];
 
+  // Webhook configuration
+  private readonly webhookUrl: string | null;
+  private readonly webhookSecret: string | null;
+
   // Observability state
   private runStartTime = 0;
   private totalPromptTokens = 0;
@@ -87,6 +91,8 @@ export class ShoppingAgent {
       ? new AcpClient(options.acpOptions)
       : null;
     this.adapters = options.adapters ?? [];
+    this.webhookUrl = options.webhookUrl ?? null;
+    this.webhookSecret = options.webhookSecret ?? null;
 
     // Register plugins
     this.plugins = new Map();
@@ -557,6 +563,9 @@ export class ShoppingAgent {
 
       case 'compare_prices':
         return this.toolComparePrices(args.query as string);
+
+      case 'subscribe_order_updates':
+        return this.toolSubscribeOrderUpdates(args.orderId as string);
 
       default: {
         const plugin = this.plugins.get(toolCall.name);
@@ -1363,6 +1372,51 @@ export class ShoppingAgent {
       merchants: results,
       summary: `Compared "${query}" across ${results.length} merchants.`,
     };
+  }
+
+  private async toolSubscribeOrderUpdates(orderId: string) {
+    if (!this.webhookUrl) {
+      return {
+        error: 'No webhook URL configured. Pass webhookUrl in AgentOptions to enable order update subscriptions.',
+      };
+    }
+
+    // Find which merchant has this order
+    let merchantDomain: string | null = null;
+    for (const [domain, ctx] of this.merchants) {
+      if (ctx.orders.has(orderId)) {
+        merchantDomain = domain;
+        break;
+      }
+    }
+    if (!merchantDomain && this.orders.has(orderId)) {
+      merchantDomain = this.activeMerchantDomain;
+    }
+
+    if (!merchantDomain) {
+      return { error: `Order not found: ${orderId}` };
+    }
+
+    try {
+      const result = await this.fetchMerchantApi('/webhooks/subscribe', {
+        method: 'POST',
+        body: {
+          orderId,
+          callbackUrl: this.webhookUrl,
+          secret: this.webhookSecret,
+        },
+      });
+      return {
+        subscribed: true,
+        orderId,
+        merchantDomain,
+        ...(result as Record<string, unknown>),
+      };
+    } catch (err) {
+      return {
+        error: `Failed to subscribe to order updates: ${err instanceof Error ? err.message : String(err)}`,
+      };
+    }
   }
 
   // ─── Observability Helpers ───

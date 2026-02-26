@@ -326,6 +326,10 @@ export interface AgentOptions {
   acpOptions?: AcpClientOptions;
   /** Merchant adapters for real e-commerce platform connectivity */
   adapters?: MerchantAdapter[];
+  /** Webhook callback URL for order update notifications */
+  webhookUrl?: string;
+  /** HMAC secret for webhook signature verification */
+  webhookSecret?: string;
   /** Custom plugins — additional tools beyond the built-in 12 */
   plugins?: AgentPlugin[];
   /** Maximum agent loop iterations (default: 20) */
@@ -480,7 +484,8 @@ export type AgentToolName =
   | 'switch_merchant'
   | 'get_product_reviews'
   | 'apply_discount_code'
-  | 'compare_prices';
+  | 'compare_prices'
+  | 'subscribe_order_updates';
 
 // ─── Merchant Adapter Types ───
 

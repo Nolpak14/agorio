@@ -18,6 +18,8 @@ import type {
   MockProduct,
   MockOrder,
   CartItem,
+  WebhookEvent,
+  OrderUpdateEvent,
 } from '../types/index.js';
 import {
   DEFAULT_PRODUCTS,
@@ -37,6 +39,13 @@ export class MockMerchant {
   private orders: Map<string, MockOrder> = new Map();
   private checkoutSessions: Map<string, { items: CartItem[]; createdAt: string }> =
     new Map();
+
+  // Webhook state
+  private webhookSubscriptions: Map<
+    string,
+    { callbackUrl: string; secret?: string; orderId: string }
+  > = new Map();
+  private lifecycleTimers: ReturnType<typeof setTimeout>[] = [];
 
   constructor(options: MockMerchantOptions = {}) {
     this.port = options.port ?? 0;
@@ -290,6 +299,49 @@ export class MockMerchant {
       });
     });
 
+    // ─── Webhook Registration API ───
+    app.post('/ucp/v1/webhooks/subscribe', (req, res) => {
+      const { orderId, callbackUrl, secret } = req.body;
+
+      if (!orderId || !callbackUrl) {
+        res.status(400).json({ error: 'Missing orderId or callbackUrl' });
+        return;
+      }
+
+      const order = this.orders.get(orderId);
+      if (!order) {
+        res.status(404).json({ error: `Order not found: ${orderId}` });
+        return;
+      }
+
+      const subscriptionId = `sub_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+      this.webhookSubscriptions.set(subscriptionId, {
+        callbackUrl,
+        secret,
+        orderId,
+      });
+
+      // Start simulated order lifecycle
+      this.simulateOrderLifecycle(orderId, subscriptionId);
+
+      res.json({
+        subscriptionId,
+        orderId,
+        callbackUrl,
+        status: 'active',
+      });
+    });
+
+    app.delete('/ucp/v1/webhooks/:subscriptionId', (req, res) => {
+      const sub = this.webhookSubscriptions.get(req.params.subscriptionId);
+      if (!sub) {
+        res.status(404).json({ error: `Subscription not found: ${req.params.subscriptionId}` });
+        return;
+      }
+      this.webhookSubscriptions.delete(req.params.subscriptionId);
+      res.json({ deleted: true, subscriptionId: req.params.subscriptionId });
+    });
+
     // ─── Order API ───
     app.get('/ucp/v1/orders/:id', (req, res) => {
       const order = this.orders.get(req.params.id);
@@ -321,6 +373,12 @@ export class MockMerchant {
    * Stop the mock merchant server.
    */
   async stop(): Promise<void> {
+    // Cancel pending lifecycle timers
+    for (const timer of this.lifecycleTimers) {
+      clearTimeout(timer);
+    }
+    this.lifecycleTimers = [];
+
     return new Promise<void>((resolve, reject) => {
       if (!this.server) {
         resolve();
@@ -356,10 +414,90 @@ export class MockMerchant {
   }
 
   /**
-   * Reset server state (orders, checkout sessions).
+   * Reset server state (orders, checkout sessions, webhook subscriptions).
    */
   reset(): void {
     this.orders.clear();
     this.checkoutSessions.clear();
+    this.webhookSubscriptions.clear();
+    for (const timer of this.lifecycleTimers) {
+      clearTimeout(timer);
+    }
+    this.lifecycleTimers = [];
+  }
+
+  /**
+   * Simulate an order lifecycle: confirmed → shipped → delivered.
+   * Sends webhook notifications at each transition.
+   */
+  private simulateOrderLifecycle(orderId: string, subscriptionId: string): void {
+    const transitions: Array<{
+      delay: number;
+      newStatus: MockOrder['status'];
+      eventType: WebhookEvent['type'];
+      trackingNumber?: string;
+    }> = [
+      { delay: 100, newStatus: 'shipped', eventType: 'order.shipped', trackingNumber: 'TRACK-123456' },
+      { delay: 200, newStatus: 'delivered', eventType: 'order.delivered' },
+    ];
+
+    for (const transition of transitions) {
+      const timer = setTimeout(() => {
+        const order = this.orders.get(orderId);
+        const sub = this.webhookSubscriptions.get(subscriptionId);
+        if (!order || !sub) return;
+
+        const previousStatus = order.status;
+        order.status = transition.newStatus;
+
+        const updateEvent: OrderUpdateEvent = {
+          orderId,
+          previousStatus,
+          newStatus: transition.newStatus,
+          timestamp: new Date().toISOString(),
+          merchantDomain: this.domain,
+          trackingNumber: transition.trackingNumber,
+        };
+
+        const webhookEvent: WebhookEvent = {
+          type: transition.eventType,
+          data: updateEvent,
+        } as WebhookEvent;
+
+        // Deliver webhook
+        this.deliverWebhook(sub.callbackUrl, webhookEvent, sub.secret).catch(() => {
+          // Webhook delivery failure — silently ignore in mock
+        });
+      }, transition.delay);
+
+      this.lifecycleTimers.push(timer);
+    }
+  }
+
+  /**
+   * Deliver a webhook event to a callback URL.
+   */
+  private async deliverWebhook(
+    callbackUrl: string,
+    event: WebhookEvent,
+    secret?: string
+  ): Promise<void> {
+    const body = JSON.stringify(event);
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+
+    if (secret) {
+      // Dynamic import to avoid issues with non-Node environments
+      const { createHmac } = await import('node:crypto');
+      const signature = createHmac('sha256', secret).update(body).digest('hex');
+      headers['X-Webhook-Signature'] = signature;
+    }
+
+    await fetch(callbackUrl, {
+      method: 'POST',
+      headers,
+      body,
+    });
   }
 }

@@ -285,4 +285,19 @@ export const SHOPPING_AGENT_TOOLS: ToolDefinition[] = [
       required: ['query'],
     },
   },
+  {
+    name: 'subscribe_order_updates',
+    description:
+      'Subscribe to webhook notifications for an order. When the order status changes (e.g., shipped, delivered), the webhook server will receive a notification. Requires a webhook server to be configured.',
+    parameters: {
+      type: 'object',
+      properties: {
+        orderId: {
+          type: 'string',
+          description: 'The order ID to subscribe to updates for',
+        },
+      },
+      required: ['orderId'],
+    },
+  },
 ];

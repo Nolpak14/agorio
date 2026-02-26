@@ -100,8 +100,8 @@ describe('Plugin system', () => {
 
     await agent.run('Hello');
 
-    // The LLM should have received 17 tools (16 built-in + 1 plugin)
-    expect(llm.receivedTools.length).toBe(17);
+    // The LLM should have received 18 tools (17 built-in + 1 plugin)
+    expect(llm.receivedTools.length).toBe(18);
     const pluginTool = llm.receivedTools.find(t => t.name === 'check_reviews');
     expect(pluginTool).toBeDefined();
     expect(pluginTool!.description).toBe('Check product reviews and ratings');
@@ -301,7 +301,7 @@ describe('Plugin system', () => {
 
     expect(result.success).toBe(true);
     expect(agent.getPlugins()).toEqual([]);
-    expect(llm.receivedTools.length).toBe(16); // Only built-in tools
+    expect(llm.receivedTools.length).toBe(17); // Only built-in tools
   });
 
   it('should use multiple plugins together in a flow', async () => {
@@ -383,6 +383,6 @@ describe('Plugin system', () => {
       'check_reviews:prod_wireless_headphones',
       'price_alert:prod_wireless_headphones@99.99',
     ]);
-    expect(llm.receivedTools.length).toBe(18); // 16 built-in + 2 plugins
+    expect(llm.receivedTools.length).toBe(19); // 17 built-in + 2 plugins
   });
 });
