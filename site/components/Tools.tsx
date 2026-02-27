@@ -9,6 +9,7 @@ const stages = [
     tools: [
       { name: 'discover_merchant', desc: 'Auto-detect UCP or ACP merchant by domain', glyph: 'D' },
       { name: 'list_capabilities', desc: 'List what the merchant supports', glyph: 'C' },
+      { name: 'switch_merchant', desc: 'Switch active context between discovered merchants', glyph: 'M' },
     ],
   },
   {
@@ -18,6 +19,8 @@ const stages = [
       { name: 'browse_products', desc: 'Paginated catalog with filtering', glyph: 'B' },
       { name: 'search_products', desc: 'Keyword search across products', glyph: 'S' },
       { name: 'get_product', desc: 'Detailed product info with variants', glyph: 'P' },
+      { name: 'get_product_reviews', desc: 'Customer reviews and average ratings', glyph: 'R' },
+      { name: 'compare_prices', desc: 'Compare prices across all discovered merchants', glyph: 'V' },
     ],
   },
   {
@@ -27,6 +30,7 @@ const stages = [
       { name: 'add_to_cart', desc: 'Add products with quantity selection', glyph: '+' },
       { name: 'view_cart', desc: 'View cart contents and subtotal', glyph: '=' },
       { name: 'remove_from_cart', desc: 'Remove items from cart', glyph: '-' },
+      { name: 'apply_discount_code', desc: 'Apply coupon or promo code at checkout', glyph: '%' },
     ],
   },
   {
@@ -37,6 +41,7 @@ const stages = [
       { name: 'submit_shipping', desc: 'Submit shipping address', glyph: '@' },
       { name: 'submit_payment', desc: 'Complete payment, receive order', glyph: '$' },
       { name: 'get_order_status', desc: 'Check status of an existing order', glyph: '#' },
+      { name: 'subscribe_order_updates', desc: 'Webhook notifications for shipping updates', glyph: 'W' },
     ],
   },
 ];
@@ -61,7 +66,7 @@ export default function Tools() {
   return (
     <section ref={ref} className="px-6 py-20 max-w-6xl mx-auto">
       <h2 className={`text-3xl font-bold text-center mb-4 ${visible ? 'animate-fade-up' : 'opacity-0'}`}>
-        12 Built-in Shopping Tools
+        17 Built-in Shopping Tools
       </h2>
       <p className={`text-center text-[var(--muted)] mb-14 max-w-2xl mx-auto ${visible ? 'animate-fade-up delay-100' : 'opacity-0'}`}>
         Every tool the agent needs for the full shopping workflow — UCP and ACP,
