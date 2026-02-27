@@ -3,6 +3,7 @@ import StatsBar from '@/components/StatsBar';
 import WhyAgorio from '@/components/WhyAgorio';
 import Adapters from '@/components/Adapters';
 import Features from '@/components/Features';
+import PlaygroundPreview from '@/components/PlaygroundPreview';
 import QuickStart from '@/components/QuickStart';
 import Tools from '@/components/Tools';
 import Footer from '@/components/Footer';
@@ -19,6 +20,8 @@ export default function Home() {
       <Adapters />
       <div className="gradient-divider" />
       <Features />
+      <div className="gradient-divider" />
+      <PlaygroundPreview />
       <div className="gradient-divider" />
       <Tools />
       <div className="gradient-divider" />
