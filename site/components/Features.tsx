@@ -5,42 +5,47 @@ import CodeBlock from './CodeBlock';
 
 const features = [
   {
-    title: 'CLI Tool',
-    desc: 'Scaffold projects, start mock merchants, and discover capabilities from the command line.',
+    title: 'Multi-Merchant',
+    desc: 'Discover multiple merchants, compare prices across stores, and maintain isolated carts per merchant.',
     color: 'var(--accent)',
-    code: `$ npx agorio init my-agent
-$ npx agorio mock --mcp --port 3456
-$ npx agorio discover localhost:3456`,
+    code: `const result = await agent.run(
+  'Compare headphone prices on TechDirect and GadgetWorld'
+);
+// Agent discovers both, searches each, returns comparison
+// Each merchant gets its own cart, checkout, and order state`,
   },
   {
-    title: 'MCP Transport',
-    desc: 'Automatic JSON-RPC 2.0 transport detection. MCP when available, REST fallback. Zero config.',
+    title: 'Shopify Adapter',
+    desc: 'Connect to real Shopify stores via the Storefront API. Auto-detected by domain, zero config.',
     color: 'var(--violet)',
-    code: `// Auto-detects MCP or REST — no changes needed
-const client = new UcpClient();
-await client.discover('shop.example.com');
-const products = await client.callApi('/products');
-// Works over MCP (JSON-RPC) or REST automatically`,
-  },
-  {
-    title: 'Plugin System',
-    desc: 'Extend the agent with custom tools beyond the built-in 12. Async handlers with JSON Schema.',
-    color: 'var(--amber)',
-    code: `const agent = new ShoppingAgent({
+    code: `import { ShoppingAgent, ShopifyAdapter } from '@agorio/sdk';
+
+const agent = new ShoppingAgent({
   llm: adapter,
-  plugins: [{
-    name: 'check_price_history',
-    description: 'Check price trends',
-    parameters: { type: 'object', properties: {
-      productId: { type: 'string' }
-    }},
-    handler: async ({ productId }) => fetchPrices(productId),
-  }],
+  adapters: [new ShopifyAdapter({
+    storeDomain: 'my-store.myshopify.com',
+    storefrontToken: process.env.SHOPIFY_TOKEN,
+  })],
 });`,
   },
   {
+    title: 'Webhooks',
+    desc: 'Subscribe to order lifecycle events. Get notified when orders ship and deliver via HMAC-signed callbacks.',
+    color: 'var(--amber)',
+    code: `import { WebhookServer } from '@agorio/sdk';
+
+const webhooks = new WebhookServer({
+  secret: 'my-hmac-secret',
+  onOrderUpdate: (event) => {
+    console.log(event.orderId, event.newStatus);
+    // "ord_123" "shipped" | "delivered"
+  },
+});
+await webhooks.start();`,
+  },
+  {
     title: 'Observability',
-    desc: 'Structured logging, OpenTelemetry-compatible tracing, and automatic usage metrics.',
+    desc: 'Structured logging, OpenTelemetry-compatible tracing, and automatic usage metrics for every run.',
     color: '#10B981',
     code: `const result = await agent.run('Buy headphones');
 console.log(result.usage?.totalTokens);    // 4521
@@ -68,10 +73,10 @@ export default function Features() {
   return (
     <section ref={ref} className="px-6 py-20 max-w-6xl mx-auto">
       <h2 className={`text-3xl font-bold text-center mb-4 ${visible ? 'animate-fade-up' : 'opacity-0'}`}>
-        New in v0.3
+        New in v0.4
       </h2>
       <p className={`text-center text-[var(--muted)] mb-12 max-w-2xl mx-auto ${visible ? 'animate-fade-up delay-100' : 'opacity-0'}`}>
-        MCP transport, plugin extensibility, production observability, and a developer CLI.
+        Multi-merchant price comparison, real Shopify connectivity, webhook order tracking, and a browser playground.
       </p>
 
       <div className="grid md:grid-cols-2 gap-6">

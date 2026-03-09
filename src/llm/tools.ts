@@ -221,4 +221,83 @@ export const SHOPPING_AGENT_TOOLS: ToolDefinition[] = [
       required: ['orderId'],
     },
   },
+  {
+    name: 'switch_merchant',
+    description:
+      'Switch the active merchant context to a previously discovered merchant. Use this when comparing products across multiple merchants. The active merchant determines which cart, checkout, and product catalog you interact with.',
+    parameters: {
+      type: 'object',
+      properties: {
+        domain: {
+          type: 'string',
+          description: 'Domain of a previously discovered merchant to switch to',
+        },
+      },
+      required: ['domain'],
+    },
+  },
+  {
+    name: 'get_product_reviews',
+    description:
+      'Get customer reviews for a product. Returns average rating, total review count, and individual reviews.',
+    parameters: {
+      type: 'object',
+      properties: {
+        productId: {
+          type: 'string',
+          description: 'The product ID to get reviews for',
+        },
+        limit: {
+          type: 'integer',
+          description: 'Maximum number of reviews to return (default: 5)',
+        },
+      },
+      required: ['productId'],
+    },
+  },
+  {
+    name: 'apply_discount_code',
+    description:
+      'Apply a discount or coupon code to the current checkout session. Must have an active checkout first.',
+    parameters: {
+      type: 'object',
+      properties: {
+        code: {
+          type: 'string',
+          description: 'The discount or coupon code to apply',
+        },
+      },
+      required: ['code'],
+    },
+  },
+  {
+    name: 'compare_prices',
+    description:
+      'Compare product prices across all discovered merchants. Requires at least 2 merchants to be discovered first. Searches for the given query on each merchant and returns a comparison table.',
+    parameters: {
+      type: 'object',
+      properties: {
+        query: {
+          type: 'string',
+          description: 'Product search query to compare across merchants (e.g., "wireless headphones")',
+        },
+      },
+      required: ['query'],
+    },
+  },
+  {
+    name: 'subscribe_order_updates',
+    description:
+      'Subscribe to webhook notifications for an order. When the order status changes (e.g., shipped, delivered), the webhook server will receive a notification. Requires a webhook server to be configured.',
+    parameters: {
+      type: 'object',
+      properties: {
+        orderId: {
+          type: 'string',
+          description: 'The order ID to subscribe to updates for',
+        },
+      },
+      required: ['orderId'],
+    },
+  },
 ];

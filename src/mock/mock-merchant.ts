@@ -18,6 +18,8 @@ import type {
   MockProduct,
   MockOrder,
   CartItem,
+  WebhookEvent,
+  OrderUpdateEvent,
 } from '../types/index.js';
 import {
   DEFAULT_PRODUCTS,
@@ -37,6 +39,13 @@ export class MockMerchant {
   private orders: Map<string, MockOrder> = new Map();
   private checkoutSessions: Map<string, { items: CartItem[]; createdAt: string }> =
     new Map();
+
+  // Webhook state
+  private webhookSubscriptions: Map<
+    string,
+    { callbackUrl: string; secret?: string; orderId: string }
+  > = new Map();
+  private lifecycleTimers: ReturnType<typeof setTimeout>[] = [];
 
   constructor(options: MockMerchantOptions = {}) {
     this.port = options.port ?? 0;
@@ -209,6 +218,130 @@ export class MockMerchant {
       });
     });
 
+    // ─── Product Reviews API ───
+    app.get('/ucp/v1/products/:id/reviews', (req, res) => {
+      const product = this.products.find(p => p.id === req.params.id);
+      if (!product) {
+        res.status(404).json({ error: `Product not found: ${req.params.id}` });
+        return;
+      }
+
+      // Generate deterministic mock reviews based on product ID
+      const seed = req.params.id.length;
+      const ratings = [5, 4, 4, 5, 3];
+      const reviewers = ['Alex M.', 'Sam K.', 'Jordan T.', 'Casey R.', 'Pat L.'];
+      const reviews = reviewers.slice(0, Math.min(5, seed)).map((author, i) => ({
+        id: `rev_${req.params.id}_${i}`,
+        author,
+        rating: ratings[i],
+        title: `${ratings[i] === 5 ? 'Excellent' : ratings[i] === 4 ? 'Great' : 'Good'} product`,
+        body: `Really ${ratings[i] >= 4 ? 'happy' : 'satisfied'} with this ${product.name}. ${ratings[i] === 5 ? 'Highly recommend!' : 'Would buy again.'}`,
+        date: new Date(Date.now() - i * 86400000 * 7).toISOString().split('T')[0],
+        verified: i < 3,
+      }));
+
+      const avg = reviews.reduce((s, r) => s + r.rating, 0) / reviews.length;
+
+      res.json({
+        productId: req.params.id,
+        averageRating: Math.round(avg * 10) / 10,
+        totalReviews: reviews.length,
+        reviews,
+      });
+    });
+
+    // ─── Discount Code API ───
+    app.post('/ucp/v1/checkout/discount', (req, res) => {
+      const { sessionId, code } = req.body;
+
+      if (!sessionId) {
+        res.status(400).json({ error: 'Missing sessionId' });
+        return;
+      }
+
+      const session = this.checkoutSessions.get(sessionId);
+      if (!session) {
+        res.status(404).json({ error: 'Checkout session not found' });
+        return;
+      }
+
+      // Simulate discount codes
+      const discounts: Record<string, number> = {
+        'SAVE10': 0.10,
+        'SAVE20': 0.20,
+        'WELCOME': 0.15,
+        'FREESHIP': 0,
+      };
+
+      const discount = discounts[code?.toUpperCase()];
+      if (discount === undefined) {
+        res.status(400).json({ error: `Invalid discount code: ${code}` });
+        return;
+      }
+
+      const subtotal = session.items.reduce(
+        (sum, item) => sum + parseFloat(item.price.amount) * item.quantity,
+        0
+      );
+
+      const discountAmount = subtotal * discount;
+      const newTotal = subtotal - discountAmount;
+
+      res.json({
+        success: true,
+        code: code.toUpperCase(),
+        discount: {
+          type: 'percentage',
+          value: discount * 100,
+          amount: { amount: discountAmount.toFixed(2), currency: 'USD' },
+        },
+        newSubtotal: { amount: newTotal.toFixed(2), currency: 'USD' },
+      });
+    });
+
+    // ─── Webhook Registration API ───
+    app.post('/ucp/v1/webhooks/subscribe', (req, res) => {
+      const { orderId, callbackUrl, secret } = req.body;
+
+      if (!orderId || !callbackUrl) {
+        res.status(400).json({ error: 'Missing orderId or callbackUrl' });
+        return;
+      }
+
+      const order = this.orders.get(orderId);
+      if (!order) {
+        res.status(404).json({ error: `Order not found: ${orderId}` });
+        return;
+      }
+
+      const subscriptionId = `sub_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+      this.webhookSubscriptions.set(subscriptionId, {
+        callbackUrl,
+        secret,
+        orderId,
+      });
+
+      // Start simulated order lifecycle
+      this.simulateOrderLifecycle(orderId, subscriptionId);
+
+      res.json({
+        subscriptionId,
+        orderId,
+        callbackUrl,
+        status: 'active',
+      });
+    });
+
+    app.delete('/ucp/v1/webhooks/:subscriptionId', (req, res) => {
+      const sub = this.webhookSubscriptions.get(req.params.subscriptionId);
+      if (!sub) {
+        res.status(404).json({ error: `Subscription not found: ${req.params.subscriptionId}` });
+        return;
+      }
+      this.webhookSubscriptions.delete(req.params.subscriptionId);
+      res.json({ deleted: true, subscriptionId: req.params.subscriptionId });
+    });
+
     // ─── Order API ───
     app.get('/ucp/v1/orders/:id', (req, res) => {
       const order = this.orders.get(req.params.id);
@@ -240,6 +373,12 @@ export class MockMerchant {
    * Stop the mock merchant server.
    */
   async stop(): Promise<void> {
+    // Cancel pending lifecycle timers
+    for (const timer of this.lifecycleTimers) {
+      clearTimeout(timer);
+    }
+    this.lifecycleTimers = [];
+
     return new Promise<void>((resolve, reject) => {
       if (!this.server) {
         resolve();
@@ -275,10 +414,90 @@ export class MockMerchant {
   }
 
   /**
-   * Reset server state (orders, checkout sessions).
+   * Reset server state (orders, checkout sessions, webhook subscriptions).
    */
   reset(): void {
     this.orders.clear();
     this.checkoutSessions.clear();
+    this.webhookSubscriptions.clear();
+    for (const timer of this.lifecycleTimers) {
+      clearTimeout(timer);
+    }
+    this.lifecycleTimers = [];
+  }
+
+  /**
+   * Simulate an order lifecycle: confirmed → shipped → delivered.
+   * Sends webhook notifications at each transition.
+   */
+  private simulateOrderLifecycle(orderId: string, subscriptionId: string): void {
+    const transitions: Array<{
+      delay: number;
+      newStatus: MockOrder['status'];
+      eventType: WebhookEvent['type'];
+      trackingNumber?: string;
+    }> = [
+      { delay: 100, newStatus: 'shipped', eventType: 'order.shipped', trackingNumber: 'TRACK-123456' },
+      { delay: 200, newStatus: 'delivered', eventType: 'order.delivered' },
+    ];
+
+    for (const transition of transitions) {
+      const timer = setTimeout(() => {
+        const order = this.orders.get(orderId);
+        const sub = this.webhookSubscriptions.get(subscriptionId);
+        if (!order || !sub) return;
+
+        const previousStatus = order.status;
+        order.status = transition.newStatus;
+
+        const updateEvent: OrderUpdateEvent = {
+          orderId,
+          previousStatus,
+          newStatus: transition.newStatus,
+          timestamp: new Date().toISOString(),
+          merchantDomain: this.domain,
+          trackingNumber: transition.trackingNumber,
+        };
+
+        const webhookEvent: WebhookEvent = {
+          type: transition.eventType,
+          data: updateEvent,
+        } as WebhookEvent;
+
+        // Deliver webhook
+        this.deliverWebhook(sub.callbackUrl, webhookEvent, sub.secret).catch(() => {
+          // Webhook delivery failure — silently ignore in mock
+        });
+      }, transition.delay);
+
+      this.lifecycleTimers.push(timer);
+    }
+  }
+
+  /**
+   * Deliver a webhook event to a callback URL.
+   */
+  private async deliverWebhook(
+    callbackUrl: string,
+    event: WebhookEvent,
+    secret?: string
+  ): Promise<void> {
+    const body = JSON.stringify(event);
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+
+    if (secret) {
+      // Dynamic import to avoid issues with non-Node environments
+      const { createHmac } = await import('node:crypto');
+      const signature = createHmac('sha256', secret).update(body).digest('hex');
+      headers['X-Webhook-Signature'] = signature;
+    }
+
+    await fetch(callbackUrl, {
+      method: 'POST',
+      headers,
+      body,
+    });
   }
 }

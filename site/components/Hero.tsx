@@ -2,23 +2,30 @@
 
 import CodeBlock from './CodeBlock';
 
-const heroCode = `import { ShoppingAgent, GeminiAdapter, MockMerchant } from '@agorio/sdk';
+const heroCode = `import { ShoppingAgent, GeminiAdapter, MockMerchant,
+         WebhookServer } from '@agorio/sdk';
 
-const merchant = new MockMerchant();
-await merchant.start();
+const shop1 = new MockMerchant({ name: 'TechDirect' });
+const shop2 = new MockMerchant({ name: 'GadgetWorld' });
+await shop1.start();
+await shop2.start();
+
+const webhooks = new WebhookServer({
+  onOrderUpdate: (e) => console.log(\`Order \${e.orderId}: \${e.newStatus}\`),
+});
+await webhooks.start();
 
 const agent = new ShoppingAgent({
   llm: new GeminiAdapter({ apiKey: process.env.GEMINI_API_KEY }),
+  webhookUrl: webhooks.callbackUrl,
 });
 
 const result = await agent.run(
-  \`Go to \${merchant.domain} and buy me wireless headphones\`
+  \`Compare headphone prices on \${shop1.domain} and \${shop2.domain},
+   buy the cheapest, and track shipping.\`
 );
 
-console.log(result.answer);
-console.log(result.checkout?.orderId);
-
-await merchant.stop();`;
+console.log(result.checkout?.orderId);`;
 
 export default function Hero() {
   return (
@@ -41,7 +48,7 @@ export default function Hero() {
             {/* Version badge */}
             <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-[var(--border)] text-sm text-[var(--muted)] mb-8 animate-fade-up animate-pulse-glow">
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-status-pulse" />
-              v0.3 — UCP + ACP + MCP · CLI · Plugins · 4 LLMs
+              v0.4 — Multi-Merchant · Shopify · Webhooks · Playground
             </div>
 
             {/* Headline */}
@@ -101,6 +108,18 @@ export default function Hero() {
               >
                 GitHub
                 <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M11 3a1 1 0 100 2h2.586l-6.293 6.293a1 1 0 101.414 1.414L15 6.414V9a1 1 0 102 0V4a1 1 0 00-1-1h-5z" /><path d="M5 5a2 2 0 00-2 2v8a2 2 0 002 2h8a2 2 0 002-2v-3a1 1 0 10-2 0v3H5V7h3a1 1 0 000-2H5z" /></svg>
+              </a>
+
+              <a
+                href="/playground"
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg font-medium text-sm transition-all duration-300 hover:shadow-[0_0_20px_rgba(139,92,246,0.3)]"
+                style={{
+                  background: 'linear-gradient(135deg, var(--violet), #6d28d9)',
+                  color: 'white',
+                }}
+              >
+                Try Playground
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /><path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
               </a>
 
               <a

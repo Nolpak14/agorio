@@ -1,11 +1,12 @@
 /**
- * @ucptools/agent-sdk
+ * @agorio/sdk
  *
- * SDK for building AI shopping agents that interact with UCP-enabled merchants.
+ * The open-source toolkit for building AI shopping agents
+ * using UCP and ACP open commerce protocols.
  *
  * @example
  * ```typescript
- * import { ShoppingAgent, GeminiAdapter, MockMerchant } from '@ucptools/agent-sdk';
+ * import { ShoppingAgent, GeminiAdapter, MockMerchant } from '@agorio/sdk';
  *
  * // Start a mock merchant for testing
  * const merchant = new MockMerchant();
@@ -46,6 +47,13 @@ export type { OllamaAdapterOptions } from './llm/ollama.js';
 
 // Agent
 export { ShoppingAgent } from './agent/shopping-agent.js';
+
+// Merchant adapters
+export { ShopifyAdapter, ShopifyAdapterError } from './adapters/shopify.js';
+export type { ShopifyAdapterOptions } from './adapters/shopify.js';
+
+// Webhook
+export { WebhookServer } from './webhook/webhook-server.js';
 
 // Tools
 export { SHOPPING_AGENT_TOOLS } from './llm/tools.js';
@@ -102,6 +110,21 @@ export type {
   AgentStreamEvent,
   AgentResult,
   CheckoutResult,
+  AgentToolName,
+
+  // Adapter types
+  MerchantAdapter,
+  MerchantAdapterDiscovery,
+  MerchantContext,
+
+  // Review types
+  ProductReview,
+  ProductReviewResult,
+
+  // Webhook types
+  WebhookServerOptions,
+  WebhookEvent,
+  OrderUpdateEvent,
 
   // Observability types
   AgentLogEvent,
