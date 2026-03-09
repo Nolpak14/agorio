@@ -1,10 +1,10 @@
 import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
-  output: 'export',
   images: {
     unoptimized: true,
   },
+  serverExternalPackages: ['express', '@agorio/sdk'],
 };
 
 export default nextConfig;
