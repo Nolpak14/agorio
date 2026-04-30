@@ -161,3 +161,49 @@ describe('CLI — mock command', () => {
     spy.mockRestore();
   });
 });
+
+describe('CLI — plugin command', () => {
+  it('errors when no subcommand given', async () => {
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    await main(['plugin']);
+    expect(spy).toHaveBeenCalledWith(expect.stringContaining('Usage: agorio plugin'));
+    spy.mockRestore();
+  });
+
+  it('errors on unknown plugin subcommand', async () => {
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    await main(['plugin', 'bogus']);
+    expect(spy).toHaveBeenCalledWith(expect.stringContaining('Unknown plugin subcommand'));
+    spy.mockRestore();
+  });
+
+  it('plugin list runs without error', async () => {
+    const spy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    await main(['plugin', 'list']);
+    expect(spy).toHaveBeenCalled();
+    spy.mockRestore();
+  });
+
+  it('plugin info errors for nonexistent plugin', async () => {
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    await main(['plugin', 'info', 'nonexistent-plugin']);
+    expect(spy).toHaveBeenCalledWith(expect.stringContaining('not installed'));
+    spy.mockRestore();
+  });
+
+  it('plugin install errors without name', async () => {
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    await main(['plugin', 'install']);
+    expect(spy).toHaveBeenCalledWith(expect.stringContaining('Usage: agorio plugin install'));
+    spy.mockRestore();
+  });
+
+  it('help output includes plugin commands', async () => {
+    const spy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    await main(['--help']);
+    expect(spy).toHaveBeenCalledWith(expect.stringContaining('plugin list'));
+    expect(spy).toHaveBeenCalledWith(expect.stringContaining('plugin install'));
+    expect(spy).toHaveBeenCalledWith(expect.stringContaining('plugin info'));
+    spy.mockRestore();
+  });
+});

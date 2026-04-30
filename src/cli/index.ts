@@ -14,8 +14,9 @@
 import { mock } from './commands/mock.js';
 import { discover } from './commands/discover.js';
 import { init } from './commands/init.js';
+import { pluginCommand } from './commands/plugin.js';
 
-const VERSION = '0.3.1';
+const VERSION = '0.4.2';
 
 const HELP = `
 agorio — CLI for AI commerce agent development
@@ -34,6 +35,10 @@ Commands:
 
   init [directory]     Scaffold a new agent project
     --name <name>      Project name (default: directory name)
+
+  plugin list           List installed @agorio plugins
+  plugin install <name> Install an @agorio plugin package
+  plugin info <name>    Show detailed plugin information
 
 Flags:
   --help, -h           Show this help text
@@ -116,6 +121,13 @@ export async function main(argv: string[]): Promise<void> {
       await init({
         directory: args[0] ?? '.',
         name: typeof flags.name === 'string' ? flags.name : undefined,
+      });
+      break;
+
+    case 'plugin':
+      await pluginCommand({
+        subcommand: args[0] ?? '',
+        pluginName: args[1],
       });
       break;
 
