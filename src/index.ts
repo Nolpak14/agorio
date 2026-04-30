@@ -55,6 +55,9 @@ export type { ShopifyAdapterOptions } from './adapters/shopify.js';
 // Webhook
 export { WebhookServer } from './webhook/webhook-server.js';
 
+// Enterprise plugin utilities
+export { isEnterprisePlugin } from './types/index.js';
+
 // Tools
 export { SHOPPING_AGENT_TOOLS } from './llm/tools.js';
 
@@ -106,6 +109,10 @@ export type {
   // Agent types
   AgentOptions,
   AgentPlugin,
+  EnterprisePlugin,
+  PluginManifest,
+  PluginContext,
+  PluginToolDecision,
   AgentStep,
   AgentStreamEvent,
   AgentResult,

@@ -315,6 +315,62 @@ export interface AgentPlugin {
   handler: (args: Record<string, unknown>) => Promise<unknown> | unknown;
 }
 
+// ─── Enterprise Plugin Types ───
+
+export interface PluginManifest {
+  version: string;
+  author: string;
+  category: 'governance' | 'analytics' | 'integration' | 'utility' | string;
+  tier: 'free' | 'pro' | 'enterprise';
+  dependencies?: string[];
+  configSchema?: Record<string, unknown>;
+  peerSdkVersion?: string;
+}
+
+export interface PluginContext {
+  getCart(): CartState;
+  getActiveMerchant(): string | null;
+  getCheckoutSessionId(): string | null;
+  getMerchants(): string[];
+  getSteps(): AgentStep[];
+  getCurrentIteration(): number;
+}
+
+export interface PluginToolDecision {
+  allow: boolean;
+  reason?: string;
+  modifiedArgs?: Record<string, unknown>;
+}
+
+export interface EnterprisePlugin extends AgentPlugin {
+  manifest?: PluginManifest;
+  onRegister?(context: PluginContext): void;
+  onInit?(context: PluginContext): Promise<void> | void;
+  onBeforeToolCall?(
+    toolName: string,
+    args: Record<string, unknown>,
+    context: PluginContext
+  ): Promise<PluginToolDecision> | PluginToolDecision;
+  onAfterToolCall?(
+    toolName: string,
+    args: Record<string, unknown>,
+    result: unknown,
+    context: PluginContext
+  ): Promise<void> | void;
+  configure?(config: Record<string, unknown>): void;
+  getState?(): Record<string, unknown>;
+}
+
+export function isEnterprisePlugin(plugin: AgentPlugin): plugin is EnterprisePlugin {
+  return 'onBeforeToolCall' in plugin
+    || 'onAfterToolCall' in plugin
+    || 'onRegister' in plugin
+    || 'onInit' in plugin
+    || 'manifest' in plugin
+    || 'configure' in plugin
+    || 'getState' in plugin;
+}
+
 // ─── Agent Types ───
 
 export interface AgentOptions {
@@ -342,6 +398,8 @@ export interface AgentOptions {
   onLog?: (event: AgentLogEvent) => void;
   /** OpenTelemetry-compatible tracer (opt-in, no hard dependency) */
   tracer?: AgentTracer;
+  /** Per-plugin configuration, keyed by plugin name */
+  pluginConfigs?: Record<string, Record<string, unknown>>;
 }
 
 export interface AgentStep {

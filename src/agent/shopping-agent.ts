@@ -14,6 +14,9 @@
 import { UcpClient } from '../client/ucp-client.js';
 import { AcpClient } from '../client/acp-client.js';
 import { SHOPPING_AGENT_TOOLS } from '../llm/tools.js';
+import {
+  isEnterprisePlugin,
+} from '../types/index.js';
 import type {
   AgentOptions,
   AgentPlugin,
@@ -36,6 +39,7 @@ import type {
   MerchantContext,
   MerchantAdapter,
   ProductReviewResult,
+  PluginContext,
 } from '../types/index.js';
 
 const DEFAULT_MAX_ITERATIONS = 20;
@@ -49,6 +53,8 @@ export class ShoppingAgent {
   private readonly steps: AgentStep[] = [];
   private readonly plugins: Map<string, AgentPlugin>;
   private readonly allTools: ToolDefinition[];
+  private readonly pluginContext: PluginContext;
+  private pluginsInitialized = false;
   private iteration = 0;
 
   // Multi-merchant state
@@ -119,6 +125,26 @@ export class ShoppingAgent {
     }
 
     this.allTools = [...SHOPPING_AGENT_TOOLS, ...pluginTools];
+
+    this.pluginContext = {
+      getCart: () => this.getCart(),
+      getActiveMerchant: () => this.getActiveMerchant(),
+      getCheckoutSessionId: () => this.getActiveCheckoutSessionId(),
+      getMerchants: () => this.getMerchants(),
+      getSteps: () => [...this.steps],
+      getCurrentIteration: () => this.iteration,
+    };
+
+    for (const [, plugin] of this.plugins) {
+      if (isEnterprisePlugin(plugin)) {
+        if (plugin.onRegister) {
+          plugin.onRegister(this.pluginContext);
+        }
+        if (plugin.configure && options.pluginConfigs?.[plugin.name]) {
+          plugin.configure(options.pluginConfigs[plugin.name]);
+        }
+      }
+    }
   }
 
   /**
@@ -130,6 +156,15 @@ export class ShoppingAgent {
   async run(task: string): Promise<AgentResult> {
     this.resetMetrics();
     const runSpan = this.options.tracer?.startSpan('agent.run', { task: task.slice(0, 100) });
+
+    if (!this.pluginsInitialized) {
+      for (const [, plugin] of this.plugins) {
+        if (isEnterprisePlugin(plugin) && plugin.onInit) {
+          await plugin.onInit(this.pluginContext);
+        }
+      }
+      this.pluginsInitialized = true;
+    }
 
     const messages: ChatMessage[] = [
       { role: 'user', content: task },
@@ -233,6 +268,15 @@ export class ShoppingAgent {
   async *runStream(task: string): AsyncGenerator<AgentStreamEvent> {
     this.resetMetrics();
     const runSpan = this.options.tracer?.startSpan('agent.runStream', { task: task.slice(0, 100) });
+
+    if (!this.pluginsInitialized) {
+      for (const [, plugin] of this.plugins) {
+        if (isEnterprisePlugin(plugin) && plugin.onInit) {
+          await plugin.onInit(this.pluginContext);
+        }
+      }
+      this.pluginsInitialized = true;
+    }
 
     const messages: ChatMessage[] = [
       { role: 'user', content: task },
@@ -512,69 +556,112 @@ export class ShoppingAgent {
   private async executeTool(toolCall: ToolCall): Promise<unknown> {
     const args = toolCall.arguments;
 
+    for (const [, plugin] of this.plugins) {
+      if (isEnterprisePlugin(plugin) && plugin.onBeforeToolCall) {
+        const decision = await plugin.onBeforeToolCall(
+          toolCall.name, args, this.pluginContext
+        );
+        if (!decision.allow) {
+          this.emitLog('info', `Plugin blocked tool ${toolCall.name}`, { reason: decision.reason });
+          return { blocked: true, tool: toolCall.name, reason: decision.reason };
+        }
+        if (decision.modifiedArgs) {
+          Object.assign(args, decision.modifiedArgs);
+        }
+      }
+    }
+
+    let result: unknown;
+
     switch (toolCall.name) {
       case 'discover_merchant':
-        return this.toolDiscoverMerchant(args.domain as string);
+        result = await this.toolDiscoverMerchant(args.domain as string);
+        break;
 
       case 'list_capabilities':
-        return this.toolListCapabilities();
+        result = await this.toolListCapabilities();
+        break;
 
       case 'browse_products':
-        return this.toolBrowseProducts(args);
+        result = await this.toolBrowseProducts(args);
+        break;
 
       case 'search_products':
-        return this.toolSearchProducts(args);
+        result = await this.toolSearchProducts(args);
+        break;
 
       case 'get_product':
-        return this.toolGetProduct(args.productId as string);
+        result = await this.toolGetProduct(args.productId as string);
+        break;
 
       case 'add_to_cart':
-        return this.toolAddToCart(args);
+        result = await this.toolAddToCart(args);
+        break;
 
       case 'view_cart':
-        return this.toolViewCart();
+        result = await this.toolViewCart();
+        break;
 
       case 'remove_from_cart':
-        return this.toolRemoveFromCart(args.productId as string);
+        result = await this.toolRemoveFromCart(args.productId as string);
+        break;
 
       case 'initiate_checkout':
-        return this.toolInitiateCheckout();
+        result = await this.toolInitiateCheckout();
+        break;
 
       case 'submit_shipping':
-        return this.toolSubmitShipping(args as unknown as ShippingAddress);
+        result = await this.toolSubmitShipping(args as unknown as ShippingAddress);
+        break;
 
       case 'submit_payment':
-        return this.toolSubmitPayment(args);
+        result = await this.toolSubmitPayment(args);
+        break;
 
       case 'get_order_status':
-        return this.toolGetOrderStatus(args.orderId as string);
+        result = await this.toolGetOrderStatus(args.orderId as string);
+        break;
 
       case 'switch_merchant':
-        return this.toolSwitchMerchant(args.domain as string);
+        result = await this.toolSwitchMerchant(args.domain as string);
+        break;
 
       case 'get_product_reviews':
-        return this.toolGetProductReviews(
+        result = await this.toolGetProductReviews(
           args.productId as string,
           args.limit as number | undefined
         );
+        break;
 
       case 'apply_discount_code':
-        return this.toolApplyDiscountCode(args.code as string);
+        result = await this.toolApplyDiscountCode(args.code as string);
+        break;
 
       case 'compare_prices':
-        return this.toolComparePrices(args.query as string);
+        result = await this.toolComparePrices(args.query as string);
+        break;
 
       case 'subscribe_order_updates':
-        return this.toolSubscribeOrderUpdates(args.orderId as string);
+        result = await this.toolSubscribeOrderUpdates(args.orderId as string);
+        break;
 
       default: {
         const plugin = this.plugins.get(toolCall.name);
         if (plugin) {
-          return await plugin.handler(args);
+          result = await plugin.handler(args);
+        } else {
+          result = { error: `Unknown tool: ${toolCall.name}` };
         }
-        return { error: `Unknown tool: ${toolCall.name}` };
       }
     }
+
+    for (const [, plugin] of this.plugins) {
+      if (isEnterprisePlugin(plugin) && plugin.onAfterToolCall) {
+        await plugin.onAfterToolCall(toolCall.name, args, result, this.pluginContext);
+      }
+    }
+
+    return result;
   }
 
   private async toolDiscoverMerchant(domain: string) {
