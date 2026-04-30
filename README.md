@@ -62,7 +62,7 @@ Agorio fills that gap.
 |---|---|---|
 | UCP merchant discovery | Parse `/.well-known/ucp` yourself, handle both capability formats, normalize services | `client.discover("shop.example.com")` |
 | Product search and browsing | Build REST client, handle pagination, parse responses | Built-in agent tool, automatic |
-| Cart and checkout flow | Manage sessions, shipping, payment state machine | 12 tools handle the full flow |
+| Cart and checkout flow | Manage sessions, shipping, payment state machine | 17 tools handle the full flow |
 | LLM integration | Write provider-specific function calling code | Swap adapters: `GeminiAdapter`, `ClaudeAdapter`, `OpenAIAdapter` |
 | Testing against merchants | Stand up your own mock server, write fixtures | `new MockMerchant()` -- full UCP-compliant server with 10 products |
 | Chaos testing | Nothing built in | `{ latencyMs: 500, errorRate: 0.1 }` |
@@ -76,7 +76,7 @@ Agorio fills that gap.
 
 The core library. Everything below ships in a single package.
 
-**ShoppingAgent** -- An LLM-driven agent that completes shopping tasks end-to-end. Uses a plan-act-observe loop with 12 built-in tools. Manages cart state, checkout sessions, and order history. Configurable iteration limits and step callbacks for observability.
+**ShoppingAgent** -- An LLM-driven agent that completes shopping tasks end-to-end. Uses a plan-act-observe loop with 17 built-in tools. Manages cart state, checkout sessions, and order history. Configurable iteration limits and step callbacks for observability.
 
 **UcpClient** -- Discovers merchants via `/.well-known/ucp`, normalizes both array and object capability formats, resolves REST/MCP/A2A transports, and makes authenticated API calls with timeout handling.
 
@@ -86,7 +86,7 @@ The core library. Everything below ships in a single package.
 
 **LLM Adapters** -- Provider-agnostic interface. Ships with Gemini, Claude, OpenAI, and Ollama adapters, all with full function calling and streaming support. Ollama enables fully local/offline agents.
 
-**Plugin System** -- Extend the agent with custom tools beyond the built-in 12. Register plugins with name, description, JSON Schema parameters, and an async handler. Name collision detection prevents conflicts with built-in tools.
+**Plugin System** -- Extend the agent with custom tools beyond the built-in 17. Register plugins with name, description, JSON Schema parameters, and an async handler. Name collision detection prevents conflicts with built-in tools.
 
 **Observability** -- Structured logging via `onLog` callback, OpenTelemetry-compatible tracing via opt-in `tracer` interface (no hard dependency), and automatic usage metrics (token counts, tool call latency, total wall-clock time) on every `AgentResult`.
 
@@ -101,9 +101,9 @@ The core library. Everything below ships in a single package.
 
 **MockMcpMerchant** -- An MCP-only merchant server for testing JSON-RPC transport. Serves UCP profile with MCP transport binding and implements all shopping methods via JSON-RPC 2.0.
 
-### 12 Built-in Shopping Tools (+ Plugins)
+### 17 Built-in Shopping Tools (+ Plugins)
 
-These are the function calling tools available to the agent during its reasoning loop. Each maps to a UCP operation:
+These are the function calling tools available to the agent during its reasoning loop. Each maps to a UCP/ACP operation:
 
 | Tool | Description |
 |---|---|
@@ -119,6 +119,11 @@ These are the function calling tools available to the agent during its reasoning
 | `submit_shipping` | Submit shipping address |
 | `submit_payment` | Complete payment and receive order confirmation |
 | `get_order_status` | Check status of an existing order |
+| `switch_merchant` | Switch between multiple merchants (isolated cart/checkout per store) |
+| `get_product_reviews` | Read customer reviews for a product |
+| `apply_discount_code` | Apply a coupon or discount code at checkout |
+| `compare_prices` | Compare prices for the same product across multiple stores |
+| `subscribe_order_updates` | Subscribe to webhook notifications for order status changes |
 
 Need more? Add custom tools via the [plugin system](#plugin-system).
 
@@ -332,7 +337,7 @@ console.log(result.usage?.totalLatencyMs);   // Wall-clock time
   |     ClaudeAdapter          # Anthropic Claude with function calling
   |     OpenAIAdapter          # OpenAI GPT with function calling
   |     OllamaAdapter          # Ollama for local/offline agents
-  |     tools.ts               # 12 shopping tool definitions (JSON Schema)
+  |     tools.ts               # 17 shopping tool definitions (JSON Schema)
   |
   |-- cli/
   |     agorio mock            # Start mock merchants (UCP/ACP/MCP)
@@ -384,7 +389,7 @@ To build your own adapter, implement the `LlmAdapter` interface and pass it to `
 
 ## Testing
 
-Agorio uses [Vitest](https://vitest.dev/) and ships with 191 tests covering the UCP client, ACP client, MCP transport, mock merchants, agent orchestration, plugins, observability, streaming, CLI, and all four LLM adapters.
+Agorio uses [Vitest](https://vitest.dev/) and ships with 233 tests across 16 test files covering the UCP client, ACP client, MCP transport, mock merchants, agent orchestration, plugins, observability, streaming, CLI, webhooks, multi-merchant, Shopify adapter, and all four LLM adapters.
 
 ```bash
 # Run all tests
@@ -443,6 +448,14 @@ describe('my agent', () => {
 - [x] MockMcpMerchant — MCP-only test server for JSON-RPC transport testing
 - [x] 191 tests passing across 13 test files
 
+### Shipped (v0.4)
+- [x] Multi-merchant architecture — isolated cart/checkout per store, `switch_merchant` and `compare_prices` tools
+- [x] Shopify adapter — real Shopify Storefront API integration via GraphQL
+- [x] Webhook support — `subscribe_order_updates` tool, webhook server with HMAC verification
+- [x] 5 new tools (switch_merchant, get_product_reviews, apply_discount_code, compare_prices, subscribe_order_updates) — 17 total
+- [x] Browser-based interactive playground
+- [x] 233 tests passing across 16 test files
+
 ### Shipped (v0.2)
 - [x] ShoppingAgent with plan-act-observe loop
 - [x] UcpClient with discovery and REST API support
@@ -454,11 +467,10 @@ describe('my agent', () => {
 - [x] MockMerchant with full UCP checkout flow
 - [x] 12 built-in shopping tools
 
-### Next (v0.4)
-- [ ] Multi-merchant comparison agent
+### Next (v0.5)
 - [ ] Agent marketplace
-- [ ] Webhook support for async order updates
-- [ ] Browser-based agent playground
+- [ ] Payment provider integrations (Stripe, PayPal)
+- [ ] Multi-agent orchestration
 
 ---
 
@@ -478,7 +490,7 @@ agorio/
       claude.ts                 # Anthropic Claude adapter (+ streaming)
       openai.ts                 # OpenAI GPT adapter (+ streaming)
       ollama.ts                 # Ollama adapter for local models
-      tools.ts                  # 12 shopping tool definitions
+      tools.ts                  # 17 shopping tool definitions
     agent/shopping-agent.ts     # Agent orchestrator (plugins, observability)
     cli/
       index.ts                  # CLI entry point (npx agorio)
@@ -504,6 +516,9 @@ agorio/
     acp-client.test.ts          # 20 tests
     acp-agent.test.ts           # 8 tests
     cli.test.ts                 # 13 tests
+    multi-merchant.test.ts      # 12 tests
+    shopify-adapter.test.ts     # 15 tests
+    webhook.test.ts             # 15 tests
   package.json
   tsconfig.json
   vitest.config.ts

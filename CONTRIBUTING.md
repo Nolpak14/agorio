@@ -41,7 +41,7 @@ src/
     gemini.ts                 # Google Gemini adapter
     claude.ts                 # Anthropic Claude adapter
     openai.ts                 # OpenAI GPT adapter
-    tools.ts                  # 12 shopping tool definitions (JSON Schema)
+    tools.ts                  # 17 shopping tool definitions (JSON Schema)
     types.ts                  # LLM adapter interface
   agent/
     shopping-agent.ts         # Plan-act-observe loop (dual UCP/ACP)

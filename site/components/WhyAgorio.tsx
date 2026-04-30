@@ -16,7 +16,7 @@ const comparisons = [
   {
     capability: 'Cart & checkout flow',
     scratch: 'Manage sessions, shipping, payment state machine',
-    agorio: '12 tools handle the full flow',
+    agorio: '17 tools handle the full flow',
   },
   {
     capability: 'LLM integration',
