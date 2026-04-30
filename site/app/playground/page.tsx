@@ -451,7 +451,7 @@ export default function PlaygroundPage() {
     .reduce((sum, m) => sum + (m.toolSteps?.filter(s => s.type === 'tool_call').length || 0), 0);
 
   return (
-    <main className="min-h-screen flex flex-col">
+    <main className="min-h-screen flex flex-col pt-14">
       {/* Header */}
       <header className="px-6 pt-4 pb-3 max-w-6xl w-full mx-auto flex items-center justify-between shrink-0">
         <a href="/" className="font-bold text-lg font-mono tracking-tight hover:opacity-80 transition-opacity">
