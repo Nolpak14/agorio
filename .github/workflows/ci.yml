@@ -11,12 +11,12 @@ permissions:
 
 jobs:
   test:
-    name: Test
+    name: Test (Node ${{ matrix.node-version }})
     runs-on: ubuntu-latest
 
     strategy:
       matrix:
-        node-version: [20]
+        node-version: [20, 22]
 
     steps:
       - name: Checkout
