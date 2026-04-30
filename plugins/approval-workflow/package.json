@@ -1,0 +1,24 @@
+{
+  "name": "@agorio/plugin-approval-workflow",
+  "version": "1.0.0",
+  "description": "Enterprise approval workflow plugin for Agorio SDK — require human approval before high-value transactions",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "@agorio/sdk": "^0.4.0"
+  },
+  "keywords": ["agorio", "governance", "approval-workflow", "enterprise"],
+  "author": "Agorio",
+  "license": "SEE LICENSE IN LICENSE",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Nolpak14/agorio",
+    "directory": "plugins/approval-workflow"
+  }
+}

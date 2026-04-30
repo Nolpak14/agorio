@@ -1,0 +1,33 @@
+{
+  "name": "@agorio/plugin-spending-controls",
+  "version": "1.0.0",
+  "description": "Enterprise spending controls plugin for Agorio SDK — enforce per-transaction, session, and daily spending limits on AI shopping agents",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "@agorio/sdk": "^0.4.0"
+  },
+  "keywords": [
+    "agorio",
+    "ucp",
+    "acp",
+    "ai-agent",
+    "shopping-agent",
+    "governance",
+    "spending-controls",
+    "enterprise"
+  ],
+  "author": "Agorio",
+  "license": "SEE LICENSE IN LICENSE",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Nolpak14/agorio",
+    "directory": "plugins/spending-controls"
+  }
+}

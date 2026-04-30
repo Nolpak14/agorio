@@ -1,0 +1,24 @@
+{
+  "name": "@agorio/plugin-agent-identity",
+  "version": "1.0.0",
+  "description": "Enterprise agent identity plugin for Agorio SDK — attach organizational identity and credentials to AI shopping agents",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "@agorio/sdk": "^0.4.0"
+  },
+  "keywords": ["agorio", "governance", "agent-identity", "enterprise"],
+  "author": "Agorio",
+  "license": "SEE LICENSE IN LICENSE",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Nolpak14/agorio",
+    "directory": "plugins/agent-identity"
+  }
+}
