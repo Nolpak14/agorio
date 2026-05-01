@@ -5,6 +5,16 @@ import { eq } from 'drizzle-orm';
 import { stripe } from '../../../../lib/stripe';
 import { db } from '../../../../db';
 import { customers } from '../../../../db/schema';
+import {
+  sendWelcomeEmail,
+  sendRenewalEmail,
+  sendDunningEmail,
+  sendPaymentRecoveredEmail,
+  sendCancellationScheduledEmail,
+  sendCancellationReversedEmail,
+  sendOffboardingEmail,
+  sendDisputeAlertEmail,
+} from '../../../../lib/emails';
 
 export const runtime = 'nodejs';
 
@@ -22,7 +32,14 @@ function stripeSubscriptionId(val: string | Stripe.Subscription | null | undefin
   return typeof val === 'string' ? val : val.id;
 }
 
-// TODO (Resend): replace all console.log email stubs with real transactional emails
+async function emailForSubscription(subscriptionId: string): Promise<string | null> {
+  const rows = await db
+    .select({ email: customers.email })
+    .from(customers)
+    .where(eq(customers.stripeSubscriptionId, subscriptionId))
+    .limit(1);
+  return rows[0]?.email ?? null;
+}
 
 export async function POST(request: NextRequest) {
   const body = await request.text();
@@ -57,8 +74,10 @@ export async function POST(request: NextRequest) {
         plan:   'pro',
       });
 
-      // TODO (Resend): send welcome email to session.customer_email with licenseKey
-      console.log('[stripe] new subscriber', session.customer_email, licenseKey);
+      if (session.customer_email) {
+        void sendWelcomeEmail(session.customer_email, licenseKey)
+          .catch(err => console.error('[resend] welcome email failed:', err));
+      }
       break;
     }
 
@@ -72,8 +91,10 @@ export async function POST(request: NextRequest) {
         .set({ status: 'active', updatedAt: new Date() })
         .where(eq(customers.stripeCustomerId, stripeCustomerId(invoice.customer)));
 
-      // TODO (Resend): send renewal receipt to invoice.customer_email
-      console.log('[stripe] renewal paid', invoice.customer_email);
+      if (invoice.customer_email) {
+        void sendRenewalEmail(invoice.customer_email)
+          .catch(err => console.error('[resend] renewal email failed:', err));
+      }
       break;
     }
 
@@ -86,8 +107,10 @@ export async function POST(request: NextRequest) {
         .set({ status: 'past_due', updatedAt: new Date() })
         .where(eq(customers.stripeCustomerId, stripeCustomerId(invoice.customer)));
 
-      // TODO (Resend): send dunning email #(invoice.attempt_count) to invoice.customer_email
-      console.log('[stripe] payment failed attempt', invoice.attempt_count, invoice.customer_email);
+      if (invoice.customer_email) {
+        void sendDunningEmail(invoice.customer_email, invoice.attempt_count ?? 1)
+          .catch(err => console.error('[resend] dunning email failed:', err));
+      }
       break;
     }
 
@@ -95,37 +118,41 @@ export async function POST(request: NextRequest) {
     case 'customer.subscription.updated': {
       const sub = event.data.object as Stripe.Subscription;
       const prev = event.data.previous_attributes as Partial<Stripe.Subscription>;
+      const email = await emailForSubscription(sub.id);
 
       if (sub.status === 'active' && prev.status && prev.status !== 'active') {
         await db
           .update(customers)
           .set({ status: 'active', updatedAt: new Date() })
           .where(eq(customers.stripeSubscriptionId, sub.id));
-        // TODO (Resend): send "payment recovered — you're back" email
-        console.log('[stripe] subscription reactivated', sub.id);
+        if (email) {
+          void sendPaymentRecoveredEmail(email)
+            .catch(err => console.error('[resend] payment-recovered email failed:', err));
+        }
 
       } else if (sub.status === 'past_due') {
         await db
           .update(customers)
           .set({ status: 'past_due', updatedAt: new Date() })
           .where(eq(customers.stripeSubscriptionId, sub.id));
-        // TODO (Resend): send "update your payment method" warning
-        console.log('[stripe] subscription past_due', sub.id);
 
       } else if (sub.status === 'unpaid') {
         await db
           .update(customers)
           .set({ status: 'suspended', updatedAt: new Date() })
           .where(eq(customers.stripeSubscriptionId, sub.id));
-        console.log('[stripe] subscription unpaid — suspending', sub.id);
 
       } else if (sub.cancel_at_period_end === true && !prev.status) {
-        // TODO (Resend): send "sorry to see you go — access continues until period end" email
-        console.log('[stripe] cancellation scheduled', sub.id, 'ends', sub.cancel_at);
+        if (email) {
+          void sendCancellationScheduledEmail(email, sub.cancel_at)
+            .catch(err => console.error('[resend] cancellation-scheduled email failed:', err));
+        }
 
       } else if (sub.cancel_at_period_end === false && prev.cancel_at_period_end === true) {
-        // TODO (Resend): send "welcome back — cancellation removed" email
-        console.log('[stripe] cancellation reversed', sub.id);
+        if (email) {
+          void sendCancellationReversedEmail(email)
+            .catch(err => console.error('[resend] cancellation-reversed email failed:', err));
+        }
       }
       break;
     }
@@ -133,29 +160,34 @@ export async function POST(request: NextRequest) {
     // ── Subscription fully ended ────────────────────────────────────────────
     case 'customer.subscription.deleted': {
       const sub = event.data.object as Stripe.Subscription;
+      const email = await emailForSubscription(sub.id);
 
       await db
         .update(customers)
         .set({ status: 'cancelled', updatedAt: new Date() })
         .where(eq(customers.stripeSubscriptionId, sub.id));
 
-      // TODO (Resend): send offboarding email
-      console.log('[stripe] subscription cancelled', sub.id);
+      if (email) {
+        void sendOffboardingEmail(email)
+          .catch(err => console.error('[resend] offboarding email failed:', err));
+      }
       break;
     }
 
     // ── Chargeback filed ────────────────────────────────────────────────────
     case 'charge.dispute.created': {
       const dispute = event.data.object as Stripe.Dispute;
-      const charge = await stripe.charges.retrieve(typeof dispute.charge === 'string' ? dispute.charge : dispute.charge.id);
+      const charge = await stripe.charges.retrieve(
+        typeof dispute.charge === 'string' ? dispute.charge : dispute.charge.id
+      );
 
       await db
         .update(customers)
         .set({ status: 'suspended', updatedAt: new Date() })
         .where(eq(customers.stripeCustomerId, stripeCustomerId(charge.customer)));
 
-      // TODO (Resend): alert piotr.kaplon@outlook.com with dispute.id, dispute.amount, dispute.reason
-      console.error('[stripe] DISPUTE FILED', dispute.id, dispute.amount, dispute.reason);
+      void sendDisputeAlertEmail(dispute.id, dispute.amount, dispute.reason)
+        .catch(err => console.error('[resend] dispute alert email failed:', err));
       break;
     }
   }
