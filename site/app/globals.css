@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import '@neondatabase/neon-js/ui/tailwind';
 
 /* ── Design Tokens ── */
 :root {

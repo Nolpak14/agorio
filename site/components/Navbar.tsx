@@ -2,6 +2,8 @@
 
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
+import { UserButton } from '@neondatabase/neon-js/auth/react/ui';
+import { authClient } from '@/lib/auth-client';
 
 const links = [
   { href: '/', label: 'Home' },
@@ -33,6 +35,7 @@ export default function Navbar() {
               {link.label}
             </Link>
           ))}
+          <UserButton />
           <a
             href="https://github.com/Nolpak14/agorio"
             className="text-[var(--muted)] hover:text-[var(--fg)] transition-colors"
