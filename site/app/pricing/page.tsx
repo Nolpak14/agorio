@@ -2,6 +2,9 @@
 
 import { useEffect, useRef, useState } from 'react';
 
+const PRICE_ANNUAL = process.env.NEXT_PUBLIC_STRIPE_PRICE_ANNUAL!;
+const PRICE_MONTHLY = process.env.NEXT_PUBLIC_STRIPE_PRICE_MONTHLY!;
+
 const tiers = [
   {
     name: 'Free',
@@ -41,7 +44,6 @@ const tiers = [
       'Priority GitHub issues',
     ],
     cta: 'Get License Key',
-    ctaHref: 'mailto:piotr.kaplon@outlook.com?subject=Agorio%20Pro%20License',
     ctaStyle: 'bg-gradient-to-r from-[var(--accent)] to-[#00c8d4] text-black font-semibold hover:shadow-[0_0_20px_rgba(0,240,255,0.3)]',
   },
   {
@@ -119,6 +121,22 @@ export default function PricingPage() {
   const pluginRef = useRef<HTMLDivElement>(null);
   const [tierVisible, setTierVisible] = useState(false);
   const [pluginVisible, setPluginVisible] = useState(false);
+  const [checkingOut, setCheckingOut] = useState(false);
+
+  async function handleCheckout(priceId: string) {
+    setCheckingOut(true);
+    try {
+      const res = await fetch('/api/create-checkout-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ priceId }),
+      });
+      const data = await res.json();
+      window.location.href = data.url;
+    } catch {
+      setCheckingOut(false);
+    }
+  }
 
   useEffect(() => {
     const observers: IntersectionObserver[] = [];
@@ -204,14 +222,33 @@ export default function PricingPage() {
                 ))}
               </ul>
 
-              <a
-                href={tier.ctaHref}
-                className={`block text-center px-5 py-2.5 rounded-lg text-sm transition-all duration-300 ${tier.ctaStyle}`}
-                target={tier.ctaHref.startsWith('http') ? '_blank' : undefined}
-                rel={tier.ctaHref.startsWith('http') ? 'noopener' : undefined}
-              >
-                {tier.cta}
-              </a>
+              {tier.name === 'Pro' ? (
+                <div className="flex flex-col gap-2">
+                  <button
+                    onClick={() => handleCheckout(PRICE_ANNUAL)}
+                    disabled={checkingOut}
+                    className={`w-full text-center px-5 py-2.5 rounded-lg text-sm transition-all duration-300 disabled:opacity-60 ${tier.ctaStyle}`}
+                  >
+                    {checkingOut ? 'Redirecting…' : 'Get Pro — $149/yr'}
+                  </button>
+                  <button
+                    onClick={() => handleCheckout(PRICE_MONTHLY)}
+                    disabled={checkingOut}
+                    className="w-full text-center px-4 py-2 rounded-lg text-xs text-[var(--muted)] hover:text-[var(--fg)] border border-[var(--border)] hover:border-[var(--accent)] transition-all duration-300 disabled:opacity-60"
+                  >
+                    Monthly plan — $19/mo
+                  </button>
+                </div>
+              ) : (
+                <a
+                  href={tier.ctaHref}
+                  className={`block text-center px-5 py-2.5 rounded-lg text-sm transition-all duration-300 ${tier.ctaStyle}`}
+                  target={tier.ctaHref?.startsWith('http') ? '_blank' : undefined}
+                  rel={tier.ctaHref?.startsWith('http') ? 'noopener' : undefined}
+                >
+                  {tier.cta}
+                </a>
+              )}
             </div>
           ))}
         </div>
