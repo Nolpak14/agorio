@@ -271,7 +271,68 @@ npx agorio discover localhost:3456
 npx agorio init my-agent
 ```
 
+### Connect to a real store
+
+Agorio ships merchant adapters for real e-commerce platforms. Pass one (or more) to `ShoppingAgent` and the agent auto-routes all product/checkout calls through it.
+
+**Shopify** (Storefront API + UCP auto-detection for `*.myshopify.com`):
+
+```typescript
+import { ShoppingAgent, ShopifyAdapter, ClaudeAdapter } from '@agorio/sdk';
+
+const adapter = new ShopifyAdapter({
+  store: 'my-store',                          // your-store.myshopify.com
+  storefrontAccessToken: process.env.SHOPIFY_STOREFRONT_TOKEN!,
+  // preferUcp: true (default) — uses /.well-known/ucp when available
+});
+
+const agent = new ShoppingAgent({
+  llm: new ClaudeAdapter({ apiKey: process.env.ANTHROPIC_API_KEY! }),
+  adapters: [adapter],
+});
+
+await agent.run('Search for running shoes under $100 and add the best one to cart');
+```
+
+**WooCommerce** (REST API v3 — any WordPress site with WooCommerce):
+
+```typescript
+import { ShoppingAgent, WooCommerceAdapter, ClaudeAdapter } from '@agorio/sdk';
+
+// Read-only (browsing/search, no auth required on public stores)
+const adapter = new WooCommerceAdapter({ url: 'https://my-store.com' });
+
+// Write operations (checkout, orders) require consumer credentials
+const adapterWithAuth = new WooCommerceAdapter({
+  url: 'https://my-store.com',
+  consumerKey: process.env.WC_CONSUMER_KEY!,
+  consumerSecret: process.env.WC_CONSUMER_SECRET!,
+});
+
+const agent = new ShoppingAgent({
+  llm: new ClaudeAdapter({ apiKey: process.env.ANTHROPIC_API_KEY! }),
+  adapters: [adapterWithAuth],
+});
+
+await agent.run('Find the cheapest t-shirt and create an order for 2');
+```
+
+You can also probe a domain automatically — `isWooCommerceStore` hits `/wp-json/wc/v3/products` and returns `true` if the store exposes the WooCommerce REST API:
+
+```typescript
+import { isWooCommerceStore } from '@agorio/sdk';
+const isWc = await isWooCommerceStore('some-shop.com'); // true | false
+```
+
+| Adapter | Platform | Auth | Auto-detected |
+|---|---|---|---|
+| `ShopifyAdapter` | Shopify | Storefront token | `*.myshopify.com` via UCP |
+| `WooCommerceAdapter` | WooCommerce (WordPress) | Consumer key/secret (writes only) | `/wp-json/wc/v3` probe |
+
 ### Add custom tools with plugins
+
+See the [Plugin Development Guide](docs/plugin-development.md) for a full walk-through including enterprise lifecycle hooks, a wishlist plugin example, tests, and publishing instructions.
+
 
 ```typescript
 const agent = new ShoppingAgent({
@@ -389,7 +450,7 @@ To build your own adapter, implement the `LlmAdapter` interface and pass it to `
 
 ## Testing
 
-Agorio uses [Vitest](https://vitest.dev/) and ships with 233 tests across 16 test files covering the UCP client, ACP client, MCP transport, mock merchants, agent orchestration, plugins, observability, streaming, CLI, webhooks, multi-merchant, Shopify adapter, and all four LLM adapters.
+Agorio uses [Vitest](https://vitest.dev/) and ships with **301 tests across 17 test files** covering the UCP client, ACP client, MCP transport, AP2 client, mock merchants, agent orchestration, plugins, enterprise plugin middleware, observability, streaming, CLI, webhooks, multi-merchant, Shopify adapter, WooCommerce adapter, and all four LLM adapters.
 
 ```bash
 # Run all tests
@@ -438,39 +499,66 @@ describe('my agent', () => {
 
 ## Roadmap
 
-### Shipped (v0.3)
-- [x] MCP transport support — JSON-RPC 2.0 client with auto transport detection (MCP → REST fallback)
-- [x] Plugin system — extend the agent with custom tools (name collision detection, async handlers)
-- [x] Observability — structured logging (`onLog`), OpenTelemetry-compatible tracing (`tracer`), usage metrics on every result
-- [x] CLI tool (`npx agorio`) — mock, discover, init commands
-- [x] OllamaAdapter — run agents fully local/offline with any Ollama model
-- [x] Reference agents — deal finder, price comparison, product researcher
-- [x] MockMcpMerchant — MCP-only test server for JSON-RPC transport testing
-- [x] 191 tests passing across 13 test files
+See [docs/ROADMAP.md](docs/ROADMAP.md) for the full plan with rationale and market context.
 
-### Shipped (v0.4)
-- [x] Multi-merchant architecture — isolated cart/checkout per store, `switch_merchant` and `compare_prices` tools
-- [x] Shopify adapter — real Shopify Storefront API integration via GraphQL
-- [x] Webhook support — `subscribe_order_updates` tool, webhook server with HMAC verification
-- [x] 5 new tools (switch_merchant, get_product_reviews, apply_discount_code, compare_prices, subscribe_order_updates) — 17 total
-- [x] Browser-based interactive playground
-- [x] 233 tests passing across 16 test files
+### Shipped
 
-### Shipped (v0.2)
-- [x] ShoppingAgent with plan-act-observe loop
-- [x] UcpClient with discovery and REST API support
-- [x] GeminiAdapter, ClaudeAdapter, OpenAIAdapter — all with native function calling
-- [x] Streaming support — `runStream()` async generator + `chatStream()` on all adapters
-- [x] AcpClient — full ACP checkout session lifecycle (create, get, update, complete, cancel)
-- [x] MockAcpMerchant — ACP-compliant Express test server
-- [x] Dual-protocol ShoppingAgent — auto-detects UCP vs ACP on discovery
-- [x] MockMerchant with full UCP checkout flow
-- [x] 12 built-in shopping tools
+- **v0.2** — Multi-LLM (Claude, OpenAI), streaming, ACP client, dual-protocol agent, landing page. 113 tests.
+- **v0.3** — MCP transport, plugin system, observability, CLI, Ollama adapter, reference agents. 191 tests.
+- **v0.4** — Multi-merchant, Shopify adapter, webhooks, browser playground, 17 tools. 233 tests.
+- **v0.4.2 (May 2026)** — Enterprise plugin system (5 governance plugins), Stripe billing, Neon Postgres, customer dashboard, Resend email, `agorio plugin` CLI. 252 tests.
 
-### Next (v0.5)
-- [ ] Agent marketplace
-- [ ] Payment provider integrations (Stripe, PayPal)
-- [ ] Multi-agent orchestration
+### Next (v0.5) — Open Core Release, ~3 weeks
+
+- [x] **Open-source the 5 enterprise plugins** — relicensed MIT, ready to publish as `@agorio/plugin-*`
+- [x] **UCP profile updates** — `ShopifyAdapter` now prefers `/.well-known/ucp` discovery for all `*.myshopify.com` stores, with automatic fallback to Storefront GraphQL. Handles both array and object-keyed capability formats. Set `preferUcp: false` to force GraphQL-only mode.
+- [x] **AP2 client (initial)** — Mandate signing (IntentMandate → CartMandate → SignedMandate), mock signer for tests, `Ap2Client.pay()` convenience method
+- [x] **WooCommerce adapter** — REST API v3, auto-detected via `/wp-json/wc/v3` probe, read-only without credentials, checkout with consumer key/secret
+- [x] **Pricing pivot** — Pro tier repositioned as Agorio Cloud early-access
+
+### Then (v0.6) — Agorio Cloud v1, Q3 2026
+
+- [ ] Hosted commerce-observability dashboard (`cloud.agorio.dev`)
+- [ ] `agorioCloud({ apiKey })` SDK helper wraps existing tracer/onLog/usage
+- [ ] Hosted approval-workflow webhook receiver + click-to-approve UI
+- [ ] License-key-gated CI mock merchants
+
+### Then (v0.7) — B2B Procurement Vertical, Q3/Q4 2026
+
+- [ ] Procurement reference agent with approval thresholds + full audit trail
+- [ ] Agent composition primitives (chain specialized sub-agents)
+- [ ] Persistent sessions, rate limiting, retry
+
+### v0.8 — Compliance & Hardening, Q4 2026
+
+- [ ] EU AI Act compliance export module
+- [ ] Security audit, BotID integration, BigCommerce adapter
+
+### v1.0 — Production GA, H1 2027
+
+Stability + semver guarantees, full protocol coverage, enterprise SSO, comprehensive docs site.
+
+---
+
+## Agorio Pro
+
+The SDK is free and MIT-licensed forever. **Agorio Pro** ($149/yr or $19/mo per team) is the upcoming hosted Cloud offering — observability dashboard, hosted approval webhooks, CI mock merchants, EU AI Act-ready audit exports.
+
+The 5 governance plugins (spending controls, approval workflow, audit trail, agent identity, policy engine) will be relicensed MIT and published to npm in v0.5 — Pro will be about the hosted *service*, not the code.
+
+See [agorio.dev/pricing](https://agorio.dev/pricing) and [docs/monetization.md](docs/monetization.md).
+
+---
+
+## Plugin CLI
+
+Manage `@agorio/plugin-*` packages directly from the SDK CLI:
+
+```bash
+npx agorio plugin list                          # List installed @agorio plugins
+npx agorio plugin install spending-controls     # Install a plugin from npm
+npx agorio plugin info spending-controls        # Show metadata for an installed plugin
+```
 
 ---
 
@@ -518,6 +606,9 @@ agorio/
     cli.test.ts                 # 13 tests
     multi-merchant.test.ts      # 12 tests
     shopify-adapter.test.ts     # 15 tests
+    shopify-ucp-migration.test.ts # 10 tests
+    woocommerce-adapter.test.ts # 21 tests
+    ap2-client.test.ts          # 21 tests
     webhook.test.ts             # 15 tests
   package.json
   tsconfig.json

@@ -60,6 +60,10 @@ tests/
   openai-adapter.test.ts      # OpenAI adapter tests
 ```
 
+## Building a Plugin
+
+Want to add a custom tool or governance middleware to Agorio? See the [Plugin Development Guide](docs/plugin-development.md) — it covers both `AgentPlugin` (custom tools) and `EnterprisePlugin` (lifecycle middleware), includes a full wishlist walk-through, and explains how to publish under the `@agorio/plugin-*` convention.
+
 ## How to Add a New LLM Adapter
 
 The `LlmAdapter` interface is the key abstraction. Any LLM with function calling can be integrated.

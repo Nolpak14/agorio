@@ -13,6 +13,7 @@
 
 import { UcpClient } from '../client/ucp-client.js';
 import { AcpClient } from '../client/acp-client.js';
+import { WooCommerceAdapter, isWooCommerceStore } from '../adapters/woocommerce.js';
 import { SHOPPING_AGENT_TOOLS } from '../llm/tools.js';
 import {
   isEnterprisePlugin,
@@ -802,6 +803,38 @@ export class ShoppingAgent {
       } catch {
         // Both checks failed
       }
+    }
+
+    // Auto-detect WooCommerce via /wp-json/wc/v3 probe
+    try {
+      const fetchFn = this.options.clientOptions?.fetch ?? globalThis.fetch.bind(globalThis);
+      const isWc = await isWooCommerceStore(domain, fetchFn);
+      if (isWc) {
+        const wcAdapter = new WooCommerceAdapter({ url: `https://${domain}`, fetch: fetchFn });
+        const discovery = await wcAdapter.discover(domain);
+        const ctx: MerchantContext = {
+          domain: discovery.domain,
+          protocol: 'adapter',
+          adapter: wcAdapter,
+          cart: [],
+          checkoutSessionId: null,
+          shippingAddress: null,
+          orders: new Map(),
+          discoveryInfo: discovery as unknown as Record<string, unknown>,
+        };
+        this.merchants.set(discovery.domain, ctx);
+        this.activeMerchantDomain = discovery.domain;
+        this.log(`[Discovery] WooCommerce auto-detected at ${domain}`);
+        return {
+          domain: discovery.domain,
+          protocol: 'adapter',
+          adapterType: 'woocommerce',
+          name: discovery.name,
+          capabilities: discovery.capabilities,
+        };
+      }
+    } catch {
+      // WooCommerce probe failed — fall through to error
     }
 
     return { error: `Could not discover merchant at ${domain}. No UCP profile found and ACP is not configured.` };

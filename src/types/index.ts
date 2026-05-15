@@ -400,6 +400,8 @@ export interface AgentOptions {
   tracer?: AgentTracer;
   /** Per-plugin configuration, keyed by plugin name */
   pluginConfigs?: Record<string, Record<string, unknown>>;
+  /** Enable AP2 (Agent Payments Protocol) — experimental, mandate-based payment flow */
+  experimental_ap2?: boolean;
 }
 
 export interface AgentStep {
@@ -553,9 +555,11 @@ export type AgentToolName =
 export interface MerchantAdapterDiscovery {
   domain: string;
   name: string;
-  protocol: 'adapter';
+  protocol: 'adapter' | 'ucp';
   adapterType: string;
   capabilities: string[];
+  /** Raw UCP profile when the merchant supports UCP discovery */
+  ucpProfile?: unknown;
 }
 
 /**

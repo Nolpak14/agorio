@@ -7,13 +7,6 @@ export const PLUGIN_MANIFEST: PluginManifest = {
   tier: 'pro',
 };
 
-const LICENSE_KEY = process.env.AGORIO_LICENSE_KEY;
-if (!LICENSE_KEY || !/^agorio_(pro|ent)_[a-zA-Z0-9]{32,}$/.test(LICENSE_KEY)) {
-  console.warn(
-    '[@agorio/plugin-approval-workflow] AGORIO_LICENSE_KEY not set or invalid. ' +
-    'Get your key at https://agorio.dev/pricing'
-  );
-}
 
 export interface ApprovalWorkflowConfig {
   requireApprovalAbove: number;

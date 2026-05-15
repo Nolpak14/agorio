@@ -41,6 +41,24 @@ export interface ShopifyAdapterOptions {
   timeoutMs?: number;
   /** Custom fetch implementation for testing */
   fetch?: typeof globalThis.fetch;
+  /** When false, skip UCP discovery and go straight to Storefront API (default: true) */
+  preferUcp?: boolean;
+}
+
+// ─── UCP Profile types (inline subset for UCP discovery) ───
+
+interface UcpCapabilityEntry {
+  name: string;
+  version: string;
+  spec?: string;
+  schema?: string;
+}
+
+interface ShopifyUcpProfile {
+  ucp: {
+    version: string;
+    capabilities: UcpCapabilityEntry[] | Record<string, Array<{ version: string; spec?: string; schema?: string }>>;
+  };
 }
 
 // ─── GraphQL Response Types ───
@@ -112,6 +130,7 @@ export class ShopifyAdapter implements MerchantAdapter {
   private readonly customDomain: string | null;
   private readonly fetchFn: typeof globalThis.fetch;
   private readonly endpoint: string;
+  private readonly preferUcp: boolean;
 
   /** Maps agorio product IDs to Shopify global IDs for variant lookup */
   private productVariantMap: Map<string, string> = new Map();
@@ -123,6 +142,7 @@ export class ShopifyAdapter implements MerchantAdapter {
     this.customDomain = options.customDomain ?? null;
     this.fetchFn = options.fetch ?? globalThis.fetch.bind(globalThis);
     this.endpoint = `https://${this.store}.myshopify.com/api/${this.apiVersion}/graphql.json`;
+    this.preferUcp = options.preferUcp ?? true;
   }
 
   /** The domain this adapter handles */
@@ -141,7 +161,43 @@ export class ShopifyAdapter implements MerchantAdapter {
   }
 
   async discover(_domain: string): Promise<MerchantAdapterDiscovery> {
-    // Verify the store is reachable by fetching a single product
+    // Post-May 2026 Shopify stores expose /.well-known/ucp. Try that first.
+    if (this.preferUcp && this.domain.endsWith('.myshopify.com')) {
+      const ucpResult = await this.tryUcpDiscovery();
+      if (ucpResult) return ucpResult;
+    }
+
+    return this.discoverViaStorefrontApi();
+  }
+
+  /** Try UCP discovery at /.well-known/ucp; returns null if unavailable. */
+  async tryUcpDiscovery(): Promise<MerchantAdapterDiscovery | null> {
+    const url = `https://${this.domain}/.well-known/ucp`;
+    try {
+      const response = await this.fetchFn(url, {
+        headers: { 'Accept': 'application/json' },
+      });
+      if (!response.ok) return null;
+
+      const profile = await response.json() as ShopifyUcpProfile;
+      if (!profile?.ucp) return null;
+
+      const capabilities = this.normalizeUcpCapabilities(profile);
+
+      return {
+        domain: this.domain,
+        name: `${this.store} (via UCP)`,
+        protocol: 'ucp',
+        adapterType: 'shopify',
+        capabilities,
+        ucpProfile: profile,
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  private async discoverViaStorefrontApi(): Promise<MerchantAdapterDiscovery> {
     const query = `{
       shop {
         name
@@ -172,6 +228,14 @@ export class ShopifyAdapter implements MerchantAdapter {
         'checkout.redirect',
       ],
     };
+  }
+
+  private normalizeUcpCapabilities(profile: ShopifyUcpProfile): string[] {
+    const caps = profile.ucp.capabilities;
+    if (Array.isArray(caps)) {
+      return caps.map(c => (typeof c === 'string' ? c : c.name));
+    }
+    return Object.keys(caps);
   }
 
   async listProducts(options?: {

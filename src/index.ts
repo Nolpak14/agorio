@@ -34,6 +34,15 @@
 export { UcpClient, UcpDiscoveryError, UcpApiError } from './client/ucp-client.js';
 export { AcpClient, AcpApiError } from './client/acp-client.js';
 export { McpClient, McpError } from './client/mcp-client.js';
+export { Ap2Client, Ap2Error } from './client/ap2-client.js';
+export type {
+  Ap2ClientOptions,
+  IntentMandate,
+  CartMandate,
+  CartLineItem,
+  SignedMandate,
+  Ap2PaymentResult,
+} from './client/ap2-client.js';
 
 // LLM adapters
 export { GeminiAdapter } from './llm/gemini.js';
@@ -51,6 +60,9 @@ export { ShoppingAgent } from './agent/shopping-agent.js';
 // Merchant adapters
 export { ShopifyAdapter, ShopifyAdapterError } from './adapters/shopify.js';
 export type { ShopifyAdapterOptions } from './adapters/shopify.js';
+
+export { WooCommerceAdapter, WooCommerceAdapterError, isWooCommerceStore } from './adapters/woocommerce.js';
+export type { WooCommerceAdapterOptions } from './adapters/woocommerce.js';
 
 // Webhook
 export { WebhookServer } from './webhook/webhook-server.js';
