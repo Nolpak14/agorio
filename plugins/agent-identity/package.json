@@ -5,16 +5,23 @@
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsc",
     "typecheck": "tsc --noEmit",
     "prepublishOnly": "npm run build"
   },
   "peerDependencies": {
-    "@agorio/sdk": "^0.4.0"
+    "@agorio/sdk": "^0.5.0"
   },
-  "keywords": ["agorio", "governance", "agent-identity", "enterprise"],
+  "keywords": [
+    "agorio",
+    "governance",
+    "agent-identity",
+    "enterprise"
+  ],
   "author": "Agorio",
   "license": "MIT",
   "repository": {

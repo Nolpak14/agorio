@@ -18,6 +18,13 @@
       "import": "./dist/mock/mock-merchant.js"
     }
   },
+  "files": [
+    "dist/",
+    "examples/",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
   "scripts": {
     "build": "tsc",
     "test": "vitest",
