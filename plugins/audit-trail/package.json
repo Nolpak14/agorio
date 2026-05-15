@@ -29,5 +29,8 @@
     "type": "git",
     "url": "https://github.com/Nolpak14/agorio",
     "directory": "plugins/audit-trail"
+  },
+  "devDependencies": {
+    "@agorio/sdk": "^0.5.0"
   }
 }
