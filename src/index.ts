@@ -52,6 +52,9 @@ export { ShoppingAgent } from './agent/shopping-agent.js';
 export { ShopifyAdapter, ShopifyAdapterError } from './adapters/shopify.js';
 export type { ShopifyAdapterOptions } from './adapters/shopify.js';
 
+export { WooCommerceAdapter, WooCommerceAdapterError, isWooCommerceStore } from './adapters/woocommerce.js';
+export type { WooCommerceAdapterOptions } from './adapters/woocommerce.js';
+
 // Webhook
 export { WebhookServer } from './webhook/webhook-server.js';
 
