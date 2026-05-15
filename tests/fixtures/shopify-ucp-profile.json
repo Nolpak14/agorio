@@ -1,0 +1,62 @@
+{
+  "ucp": {
+    "version": "1.0",
+    "spec": "https://ucp.dev/spec/v1",
+    "services": {
+      "commerce": {
+        "version": "1.0",
+        "spec": "https://ucp.dev/spec/v1/commerce",
+        "rest": {
+          "schema": "https://example.myshopify.com/api/ucp/schema.json",
+          "endpoint": "https://example.myshopify.com/api/ucp"
+        },
+        "mcp": {
+          "schema": "https://example.myshopify.com/api/mcp/schema.json",
+          "endpoint": "https://example.myshopify.com/api/mcp"
+        }
+      }
+    },
+    "capabilities": [
+      {
+        "name": "dev.ucp.shopping.browse",
+        "version": "1.0",
+        "spec": "https://ucp.dev/capabilities/browse/v1",
+        "schema": "https://example.myshopify.com/api/ucp/schema.json#/definitions/browse"
+      },
+      {
+        "name": "dev.ucp.shopping.search",
+        "version": "1.0",
+        "spec": "https://ucp.dev/capabilities/search/v1",
+        "schema": "https://example.myshopify.com/api/ucp/schema.json#/definitions/search"
+      },
+      {
+        "name": "dev.ucp.shopping.cart",
+        "version": "1.0",
+        "spec": "https://ucp.dev/capabilities/cart/v1",
+        "schema": "https://example.myshopify.com/api/ucp/schema.json#/definitions/cart"
+      },
+      {
+        "name": "dev.ucp.shopping.checkout",
+        "version": "1.0",
+        "spec": "https://ucp.dev/capabilities/checkout/v1",
+        "schema": "https://example.myshopify.com/api/ucp/schema.json#/definitions/checkout"
+      },
+      {
+        "name": "dev.ucp.shopping.orders",
+        "version": "1.0",
+        "spec": "https://ucp.dev/capabilities/orders/v1",
+        "schema": "https://example.myshopify.com/api/ucp/schema.json#/definitions/orders"
+      }
+    ]
+  },
+  "payment": {
+    "handlers": [
+      {
+        "id": "shopify_payments",
+        "name": "Shopify Payments",
+        "version": "1.0",
+        "spec": "https://ucp.dev/payments/shopify-payments/v1"
+      }
+    ]
+  }
+}

@@ -30,6 +30,7 @@ function createAdapter(fetchFn: ReturnType<typeof mockFetch>) {
     store: 'test-store',
     storefrontAccessToken: 'test-token',
     fetch: fetchFn as unknown as typeof globalThis.fetch,
+    preferUcp: false, // these tests cover Storefront API path; UCP path is in shopify-ucp-migration.test.ts
   });
 }
 

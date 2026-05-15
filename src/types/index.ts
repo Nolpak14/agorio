@@ -553,9 +553,11 @@ export type AgentToolName =
 export interface MerchantAdapterDiscovery {
   domain: string;
   name: string;
-  protocol: 'adapter';
+  protocol: 'adapter' | 'ucp';
   adapterType: string;
   capabilities: string[];
+  /** Raw UCP profile when the merchant supports UCP discovery */
+  ucpProfile?: unknown;
 }
 
 /**

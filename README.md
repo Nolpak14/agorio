@@ -453,7 +453,7 @@ See [docs/ROADMAP.md](docs/ROADMAP.md) for the full plan with rationale and mark
 ### Next (v0.5) — Open Core Release, ~3 weeks
 
 - [ ] **Open-source the 5 enterprise plugins** — relicense MIT, publish to npm as `@agorio/plugin-*`
-- [ ] **UCP profile updates** — handle Shopify's May 30, 2026 UCP migration (every Shopify store gains `/.well-known/ucp`)
+- [x] **UCP profile updates** — `ShopifyAdapter` now prefers `/.well-known/ucp` discovery for all `*.myshopify.com` stores, with automatic fallback to Storefront GraphQL. Handles both array and object-keyed capability formats. Set `preferUcp: false` to force GraphQL-only mode.
 - [ ] **AP2 client (initial)** — Mandate signing (Intent Mandate, Cart Mandate), payment-agnostic
 - [ ] **WooCommerce adapter** — second real-merchant proof point
 - [ ] **Pricing pivot** — Pro tier becomes "Agorio Cloud" early-access (see v0.6)
