@@ -15,13 +15,13 @@ const tiers = [
     price: '$149/yr',
     accent: 'var(--accent)',
     popular: true,
-    highlight: 'Spending controls, approval workflows, audit trail, and agent identity plugins — flat fee, unlimited agents.',
+    highlight: 'Early access to Agorio Cloud — hosted agent observability, approval webhooks, and CI mock merchants. Launching Q3 2026.',
   },
   {
     name: 'Enterprise',
     price: 'Custom',
     accent: 'var(--violet)',
-    highlight: 'Custom implementation, policy engine, SLA, and dedicated protocol maintenance retainer.',
+    highlight: 'Custom implementation, SSO, SLA, dedicated protocol maintenance, and on-prem option.',
   },
 ];
 
@@ -46,7 +46,7 @@ export default function PricingPreview() {
         From open-source to enterprise
       </h2>
       <p className={`text-center text-[var(--muted)] mb-12 max-w-2xl mx-auto ${visible ? 'animate-fade-up delay-100' : 'opacity-0'}`}>
-        The SDK is free forever. Add governance guardrails when your agents go to production.
+        The SDK and all governance plugins are MIT-licensed and free forever. Pro unlocks Agorio Cloud — hosted observability launching Q3 2026.
       </p>
 
       <div className="grid md:grid-cols-3 gap-6 mb-8">
