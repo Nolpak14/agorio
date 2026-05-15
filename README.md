@@ -271,6 +271,64 @@ npx agorio discover localhost:3456
 npx agorio init my-agent
 ```
 
+### Connect to a real store
+
+Agorio ships merchant adapters for real e-commerce platforms. Pass one (or more) to `ShoppingAgent` and the agent auto-routes all product/checkout calls through it.
+
+**Shopify** (Storefront API + UCP auto-detection for `*.myshopify.com`):
+
+```typescript
+import { ShoppingAgent, ShopifyAdapter, ClaudeAdapter } from '@agorio/sdk';
+
+const adapter = new ShopifyAdapter({
+  store: 'my-store',                          // your-store.myshopify.com
+  storefrontAccessToken: process.env.SHOPIFY_STOREFRONT_TOKEN!,
+  // preferUcp: true (default) — uses /.well-known/ucp when available
+});
+
+const agent = new ShoppingAgent({
+  llm: new ClaudeAdapter({ apiKey: process.env.ANTHROPIC_API_KEY! }),
+  adapters: [adapter],
+});
+
+await agent.run('Search for running shoes under $100 and add the best one to cart');
+```
+
+**WooCommerce** (REST API v3 — any WordPress site with WooCommerce):
+
+```typescript
+import { ShoppingAgent, WooCommerceAdapter, ClaudeAdapter } from '@agorio/sdk';
+
+// Read-only (browsing/search, no auth required on public stores)
+const adapter = new WooCommerceAdapter({ url: 'https://my-store.com' });
+
+// Write operations (checkout, orders) require consumer credentials
+const adapterWithAuth = new WooCommerceAdapter({
+  url: 'https://my-store.com',
+  consumerKey: process.env.WC_CONSUMER_KEY!,
+  consumerSecret: process.env.WC_CONSUMER_SECRET!,
+});
+
+const agent = new ShoppingAgent({
+  llm: new ClaudeAdapter({ apiKey: process.env.ANTHROPIC_API_KEY! }),
+  adapters: [adapterWithAuth],
+});
+
+await agent.run('Find the cheapest t-shirt and create an order for 2');
+```
+
+You can also probe a domain automatically — `isWooCommerceStore` hits `/wp-json/wc/v3/products` and returns `true` if the store exposes the WooCommerce REST API:
+
+```typescript
+import { isWooCommerceStore } from '@agorio/sdk';
+const isWc = await isWooCommerceStore('some-shop.com'); // true | false
+```
+
+| Adapter | Platform | Auth | Auto-detected |
+|---|---|---|---|
+| `ShopifyAdapter` | Shopify | Storefront token | `*.myshopify.com` via UCP |
+| `WooCommerceAdapter` | WooCommerce (WordPress) | Consumer key/secret (writes only) | `/wp-json/wc/v3` probe |
+
 ### Add custom tools with plugins
 
 See the [Plugin Development Guide](docs/plugin-development.md) for a full walk-through including enterprise lifecycle hooks, a wishlist plugin example, tests, and publishing instructions.
@@ -392,7 +450,7 @@ To build your own adapter, implement the `LlmAdapter` interface and pass it to `
 
 ## Testing
 
-Agorio uses [Vitest](https://vitest.dev/) and ships with **252 tests across 16 test files** covering the UCP client, ACP client, MCP transport, mock merchants, agent orchestration, plugins, enterprise plugin middleware, observability, streaming, CLI, webhooks, multi-merchant, Shopify adapter, and all four LLM adapters.
+Agorio uses [Vitest](https://vitest.dev/) and ships with **301 tests across 17 test files** covering the UCP client, ACP client, MCP transport, AP2 client, mock merchants, agent orchestration, plugins, enterprise plugin middleware, observability, streaming, CLI, webhooks, multi-merchant, Shopify adapter, WooCommerce adapter, and all four LLM adapters.
 
 ```bash
 # Run all tests
@@ -452,11 +510,11 @@ See [docs/ROADMAP.md](docs/ROADMAP.md) for the full plan with rationale and mark
 
 ### Next (v0.5) — Open Core Release, ~3 weeks
 
-- [ ] **Open-source the 5 enterprise plugins** — relicense MIT, publish to npm as `@agorio/plugin-*`
+- [x] **Open-source the 5 enterprise plugins** — relicensed MIT, ready to publish as `@agorio/plugin-*`
 - [x] **UCP profile updates** — `ShopifyAdapter` now prefers `/.well-known/ucp` discovery for all `*.myshopify.com` stores, with automatic fallback to Storefront GraphQL. Handles both array and object-keyed capability formats. Set `preferUcp: false` to force GraphQL-only mode.
-- [ ] **AP2 client (initial)** — Mandate signing (Intent Mandate, Cart Mandate), payment-agnostic
-- [ ] **WooCommerce adapter** — second real-merchant proof point
-- [ ] **Pricing pivot** — Pro tier becomes "Agorio Cloud" early-access (see v0.6)
+- [x] **AP2 client (initial)** — Mandate signing (IntentMandate → CartMandate → SignedMandate), mock signer for tests, `Ap2Client.pay()` convenience method
+- [x] **WooCommerce adapter** — REST API v3, auto-detected via `/wp-json/wc/v3` probe, read-only without credentials, checkout with consumer key/secret
+- [x] **Pricing pivot** — Pro tier repositioned as Agorio Cloud early-access
 
 ### Then (v0.6) — Agorio Cloud v1, Q3 2026
 
@@ -548,6 +606,9 @@ agorio/
     cli.test.ts                 # 13 tests
     multi-merchant.test.ts      # 12 tests
     shopify-adapter.test.ts     # 15 tests
+    shopify-ucp-migration.test.ts # 10 tests
+    woocommerce-adapter.test.ts # 21 tests
+    ap2-client.test.ts          # 21 tests
     webhook.test.ts             # 15 tests
   package.json
   tsconfig.json

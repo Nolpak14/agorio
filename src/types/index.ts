@@ -400,6 +400,8 @@ export interface AgentOptions {
   tracer?: AgentTracer;
   /** Per-plugin configuration, keyed by plugin name */
   pluginConfigs?: Record<string, Record<string, unknown>>;
+  /** Enable AP2 (Agent Payments Protocol) — experimental, mandate-based payment flow */
+  experimental_ap2?: boolean;
 }
 
 export interface AgentStep {
