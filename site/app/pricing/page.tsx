@@ -156,8 +156,16 @@ export default function PricingPage() {
         body: JSON.stringify({ priceId }),
       });
       const data = await res.json();
+      if (!res.ok || !data.url) {
+        console.error('[checkout] failed:', data);
+        alert(`Checkout failed: ${data.error ?? 'Unknown error'}`);
+        setCheckingOut(false);
+        return;
+      }
       window.location.href = data.url;
-    } catch {
+    } catch (err) {
+      console.error('[checkout] network error:', err);
+      alert('Checkout failed: network error');
       setCheckingOut(false);
     }
   }
