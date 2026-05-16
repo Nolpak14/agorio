@@ -38,10 +38,10 @@ function SuccessContent() {
         <ol className="text-left text-sm text-[var(--muted)] space-y-2 mb-8 bg-[var(--card)] border border-[var(--border)] rounded-xl p-5">
           <li>
             <span className="text-[var(--accent)] font-mono">1.</span>{' '}
-            <Link href="/dashboard#api-keys" className="text-[var(--fg)] hover:text-[var(--accent)] underline">
+            <Link href="https://cloud.agorio.dev/api-keys" className="text-[var(--fg)] hover:text-[var(--accent)] underline">
               Create an API key
             </Link>{' '}
-            on the dashboard.
+            on Agorio Cloud.
           </li>
           <li>
             <span className="text-[var(--accent)] font-mono">2.</span> Pass it to{' '}
@@ -67,11 +67,11 @@ function SuccessContent() {
             </button>
           )}
           <Link
-            href="/dashboard#api-keys"
+            href="https://cloud.agorio.dev/api-keys"
             className="px-5 py-2.5 rounded-lg text-sm text-black font-semibold transition-all duration-300 hover:shadow-[0_0_20px_rgba(0,240,255,0.3)]"
             style={{ background: 'linear-gradient(135deg, var(--accent), #00c8d4)' }}
           >
-            Go to dashboard
+            Open Agorio Cloud
           </Link>
         </div>
       </div>

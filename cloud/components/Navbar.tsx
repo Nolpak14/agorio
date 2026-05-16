@@ -16,11 +16,14 @@ export default function CloudNavbar() {
             <Link href="/traces" className="hover:text-[var(--accent)] transition-colors">
               Traces
             </Link>
-            <a
-              href="https://agorio.dev/dashboard#api-keys"
-              className="hover:text-[var(--accent)] transition-colors"
-            >
+            <Link href="/api-keys" className="hover:text-[var(--accent)] transition-colors">
               API keys
+            </Link>
+            <a
+              href="https://agorio.dev/dashboard"
+              className="hover:text-[var(--accent)] transition-colors text-[var(--muted)]"
+            >
+              Billing ↗
             </a>
             <UserButton />
           </SignedIn>

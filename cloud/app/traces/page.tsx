@@ -69,13 +69,31 @@ function EmptyState() {
     <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-8">
       <h2 className="text-lg font-semibold mb-3">Send your first trace</h2>
       <p className="text-sm text-[var(--muted)] mb-5">
-        Create an API key on the{' '}
-        <Link href="https://agorio.dev/dashboard" className="text-[var(--accent)] hover:underline">
-          dashboard
-        </Link>
-        , then wire it into your agent:
+        Three steps to your first trace:
       </p>
-      <pre className="bg-[var(--code-bg)] border border-[var(--border)] rounded-lg p-4 text-sm overflow-x-auto font-mono">
+
+      <ol className="space-y-3 mb-6 text-sm">
+        <li className="flex gap-3">
+          <span className="font-mono text-[var(--accent)] shrink-0">1.</span>
+          <span>
+            <Link
+              href="/api-keys"
+              className="text-[var(--accent)] hover:underline font-medium"
+            >
+              Create an API key →
+            </Link>{' '}
+            <span className="text-[var(--muted)]">and copy it.</span>
+          </span>
+        </li>
+        <li className="flex gap-3">
+          <span className="font-mono text-[var(--accent)] shrink-0">2.</span>
+          <span className="text-[var(--fg-dim)]">
+            Install <code className="font-mono text-[var(--accent)]">@agorio/sdk@^0.6.0</code> and wire it into your agent:
+          </span>
+        </li>
+      </ol>
+
+      <pre className="bg-[var(--code-bg)] border border-[var(--border)] rounded-lg p-4 text-sm overflow-x-auto font-mono mb-4">
 {`import { ShoppingAgent, agorioCloud, ClaudeAdapter } from '@agorio/sdk';
 
 const cloud = agorioCloud({ apiKey: process.env.AGORIO_API_KEY! });
@@ -87,9 +105,30 @@ const agent = new ShoppingAgent({
 
 await agent.run('find me running shoes under $100');`}
       </pre>
-      <p className="text-xs text-[var(--muted)] mt-4">
-        Traces appear here within ~5 seconds of a run completing.
-      </p>
+
+      <ol start={3} className="space-y-3 text-sm">
+        <li className="flex gap-3">
+          <span className="font-mono text-[var(--accent)] shrink-0">3.</span>
+          <span className="text-[var(--fg-dim)]">
+            Run your agent. Traces appear here within a few seconds.
+          </span>
+        </li>
+      </ol>
+
+      <div className="mt-6 pt-4 border-t border-[var(--border)] text-xs text-[var(--muted)] flex items-center gap-4">
+        <Link href="/api-keys" className="hover:text-[var(--accent)] transition-colors">
+          → Create API key
+        </Link>
+        <span>·</span>
+        <a
+          href="https://github.com/Nolpak14/agorio#send-traces-to-agorio-cloud"
+          target="_blank"
+          rel="noopener"
+          className="hover:text-[var(--accent)] transition-colors"
+        >
+          Full setup guide
+        </a>
+      </div>
     </div>
   );
 }
