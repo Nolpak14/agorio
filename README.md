@@ -466,7 +466,7 @@ await agent.run('find me running shoes under $100');
 // Trace appears at cloud.agorio.dev/traces within seconds.
 ```
 
-Get an API key from your [dashboard](https://agorio.dev/dashboard#api-keys) after subscribing. Network failures never break your agent — `agorioCloud()` swallows errors and only emits `console.warn` on bad/revoked keys or unreachable endpoints. See [docs/cloud-setup.md](docs/cloud-setup.md) for the full guide.
+Get an API key at [cloud.agorio.dev/api-keys](https://cloud.agorio.dev/api-keys) after subscribing. Network failures never break your agent — `agorioCloud()` swallows errors and only emits `console.warn` on bad/revoked keys or unreachable endpoints. See [docs/cloud-setup.md](docs/cloud-setup.md) for the full guide.
 
 ---
 
@@ -530,7 +530,7 @@ See [docs/ROADMAP.md](docs/ROADMAP.md) for the full plan with rationale and mark
 - **v0.4** — Multi-merchant, Shopify adapter, webhooks, browser playground, 17 tools. 233 tests.
 - **v0.4.2 (May 2026)** — Enterprise plugin system (5 governance plugins), Stripe billing, Neon Postgres, customer dashboard, Resend email, `agorio plugin` CLI. 252 tests.
 - **v0.5 (May 2026)** — Open Core release: 5 plugins relicensed MIT and published as `@agorio/plugin-*`, WooCommerce adapter, Shopify UCP migration support, experimental AP2 client. 301 tests.
-- **v0.6 (May 2026)** — Agorio Cloud MVP: `agorioCloud({ apiKey })` helper, hosted trace explorer at `cloud.agorio.dev`, API key management on the dashboard. 306 tests.
+- **v0.6 (May 2026)** — Agorio Cloud MVP: `agorioCloud({ apiKey })` helper, hosted trace explorer at `cloud.agorio.dev`, API key management on Cloud, cross-subdomain auth, brand-native terminal-frame auth UI. 306 tests.
 
 ### Next (v0.6.1) — Cloud feature completion, ~3 weeks
 

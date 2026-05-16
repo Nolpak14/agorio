@@ -7,6 +7,43 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [0.6.0-infra] — 2026-05-16 — Cloud infrastructure patches (no SDK version bump)
+
+After `@agorio/sdk@0.6.0` shipped to npm, a series of post-launch patches landed on the site and cloud apps to fix the auth flow, polish the visual design, and migrate API-key management onto Cloud where it belongs. No SDK code changed — this is purely site / cloud infrastructure.
+
+### Auth flow
+
+- **Dynamic `/auth/[pathname]` route** added to both `site/` and `cloud/` (replaces the original single-view `/login` page). One route handles sign-in, sign-up, forgot-password, reset-password, verify-email, callback. The original `/login` route now redirects to `/auth/sign-in` for backward-compat.
+- **`NeonAuthUIProvider` wired into cloud/** — the missing provider was why cloud's login page initially rendered blank. Both `site/components/Providers.tsx` and the new `cloud/components/Providers.tsx` thread `useRouter().push/replace` + Next.js `Link` through the provider for client-side navigation, and force `defaultTheme="dark"`.
+- **Cross-subdomain session sharing** — `cookies.domain: '.agorio.dev'` added to both `auth-server.ts` files (gated on `VERCEL_ENV === 'production'` so localhost / `*.vercel.app` previews keep working). Sessions persist across `agorio.dev` ↔ `cloud.agorio.dev`. **One-time Neon Console action required**: add the new subdomain to the project's "Trusted domains" list in the Neon Auth dashboard (documented in `docs/v0.6-release-checklist.md`).
+- **`html.dark` set server-side** in both root layouts to prevent dark-mode FOUC before the theme script hydrates.
+
+### Brand-native auth visuals ("Terminal-Native Authentication")
+
+- **shadcn theme tokens mapped to Agorio brand** in both `globals.css` files. Overrides better-auth-ui's internal `--neon-*` tokens directly (rather than the shadcn `--card` / `--primary` aliases, which would collide with this project's existing brand variables of the same name).
+- **Terminal-frame card design** — wrap `<AuthView>` in the same macOS-style window aesthetic the homepage code blocks use (red/yellow/green dots + monospaced filename like `~/agorio/auth/sign-in.ts` on site or `cloud.agorio.dev/auth/sign-in` on cloud).
+- **Per-element `classNames` overrides** on `<AuthView>` for the primary button (cyan→teal gradient), inputs (code-bg surface with cyan focus ring), labels (uppercase JetBrains Mono tracking-wider), title, footer link.
+- **Subtle ambient glow** behind the card via radial gradient, JetBrains Mono wordmark + prompt-style tagline above, status-dot footer with GitHub / Pricing links.
+
+### API-key management migrated to Cloud
+
+The v0.6.0 plan put API keys under `site/app/dashboard#api-keys`, which created a confusing cross-domain UX hop for Cloud users (the keys are *used* by the Cloud SDK helper). Built `cloud/app/api-keys/{page.tsx,actions.ts,CreateApiKeyForm.tsx}` mirroring site's UX. CloudNavbar now links `API keys` in-app, with a separate muted "Billing ↗" link out to `agorio.dev/dashboard` for license-key / Stripe portal management. The `/traces` empty state was rewritten as a numbered 3-step quickstart with a direct `/api-keys` CTA. Onboarding success page now lands new subscribers on `cloud.agorio.dev/api-keys`.
+
+Site's `/dashboard#api-keys` section is intentionally retained as a working secondary surface for back-compat. It's no longer canonical.
+
+### Site/cloud navbar
+
+- **`<SignedIn>` / `<SignedOut>` wrappers** in both navbars conditionally render Sign in / Sign up CTAs vs the UserButton + dashboard link.
+- Site navbar adds an explicit "Sign in" + "Sign up" button when signed out (previously only an invisible `<UserButton />`).
+- Cloud navbar links: Traces · API keys · Billing ↗ (cross-domain) · UserButton.
+
+### Fixed
+
+- **Middleware over-matching broke server actions.** Cloud's middleware initially had `matcher: ['/traces/:path*', '/api-keys', '/api-keys/:path*']`. Next.js 15 sends action POSTs to the page route, and the Neon Auth middleware's response augmentation made the client see "An unexpected response was received from the server" when creating a key. Removed `/api-keys` from the matcher; final state: `['/traces/:path*']` only.
+- **Env-var corruption during bulk-copy.** When initially provisioning cloud's env vars, a `vercel env pull` → `vercel env add` round-trip left literal `\n` (two characters) appended to `DATABASE_URL`, `NEON_AUTH_BASE_URL`, and `NEON_AUTH_COOKIE_SECRET`. The SDK proxy then built URLs like `…/auth\n/sign-in/email` and got 404 from Neon. Fixed by re-setting from clean source. Documented in the release checklist so the next sibling-app setup doesn't repeat it.
+
+---
+
 ## [0.6.0] — 2026-05-16 — Agorio Cloud MVP
 
 ### Highlights

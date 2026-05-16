@@ -88,28 +88,40 @@ Detailed plan: [docs/v0.5-plan.md](v0.5-plan.md).
 ### v0.6.0 — Agorio Cloud MVP (May 2026)
 
 - [x] **`agorioCloud({ apiKey })` SDK helper** — wraps existing `tracer`/`onLog`/`AgentResult.usage` and POSTs traces to the ingestion endpoint. New `AgentOptions.onComplete` callback wired through `ShoppingAgent.run` / `runStream`. Spread into `AgentOptions` and you're done.
-- [x] **Hosted dashboard at `cloud.agorio.dev`** — sibling Next.js app sharing the Neon DB with `site/`. Routes: `/login`, `/traces`, `/traces/[runId]`, `/api/ingest`.
+- [x] **Hosted dashboard at `cloud.agorio.dev`** — sibling Next.js app sharing the Neon DB with `site/`. Routes: `/auth/[pathname]`, `/traces`, `/traces/[runId]`, `/api-keys`, `/api/ingest`, `/api/auth/[...path]`.
 - [x] **Trace explorer** — per-run drilldown with usage grid, span table, level-colored log table, final answer / error block. Auto-refreshes every 2 s while a run is `in_progress`.
-- [x] **API key management** on `/dashboard` — per-env keys (`dev`/`prod`/`test`), one-time reveal, soft-delete revoke. Keys are masked everywhere after creation.
+- [x] **API key management on cloud** — per-env keys (`dev`/`prod`/`test`), one-time reveal, soft-delete revoke. Keys are masked everywhere after creation. (Initially shipped on site; migrated to cloud post-launch — see "Post-launch patches" in [v0.6-plan.md](v0.6-plan.md).)
+- [x] **Auth surface redesign** — terminal-frame design over better-auth-ui's shadcn components, mapped to Agorio brand via `--neon-*` token overrides. Dynamic `/auth/[pathname]` route handles sign-in, sign-up, forgot-password, reset-password, verify-email, callback.
+- [x] **Cross-subdomain sessions** — `cookies.domain: '.agorio.dev'` in production, plus `cloud.agorio.dev` added to Neon Auth's Trusted Domains. Users signed in on either subdomain are authenticated on both.
 - [x] **Schema additions** — `api_keys`, `trace_runs`, `trace_spans`, `trace_logs` with three new pgEnums. Migrations owned by `site/`; `cloud/db/schema.ts` is duplicated with a sync header.
-- [x] **Pricing copy + onboarding** — `/pricing` reframed "available now (Beta)"; `/success` walks new subscribers through API key → first trace.
+- [x] **Pricing copy + onboarding** — `/pricing` reframed "available now (Beta)"; `/success` walks new subscribers through API key → first trace on Cloud.
 - 306 tests across 18 test files.
 
-Detailed plan: [docs/v0.6-plan.md](v0.6-plan.md). User-facing setup guide: [docs/cloud-setup.md](cloud-setup.md).
+Detailed plan + post-launch patches: [docs/v0.6-plan.md](v0.6-plan.md). User-facing setup guide: [docs/cloud-setup.md](cloud-setup.md). Operational runbook: [docs/v0.6-release-checklist.md](v0.6-release-checklist.md).
 
 ---
 
 ## Planned
 
-### v0.6.1 — Cloud feature completion (Target: Q3 2026, ~3 weeks)
+### v0.6.1 — Cloud feature completion + post-launch fixes (Target: Q3 2026, ~3 weeks)
 
-**Goal:** Close out the v0.6 issue's remaining sub-tasks now that the ingestion pipeline and dashboard exist.
+**Goal:** Close out the v0.6 issue's remaining sub-tasks now that the ingestion pipeline and dashboard exist, plus address the issues that surfaced during the v0.6 launch (documented in `docs/v0.6-plan.md` Post-launch patches).
+
+**Originally deferred from v0.6:**
 
 - [ ] **Hosted approval-workflow webhook receiver** — click-to-approve UI for the `approval-workflow` plugin. Requires a new SDK primitive for agent-side approval polling/awaiting (current `approval_workflow` plugin can POST out but the agent can't receive push-backs).
 - [ ] **Hosted mock merchants** — wrap `MockMerchant` / `MockAcpMerchant` / `MockMcpMerchant` behind a `cloud.agorio.dev/mock/<tenant-id>/...` route, gated by the same API-key lookup.
 - [ ] **Multi-agent fleet view** — org-level rollup with spend / conversion / error rate aggregates. Requires an `orgs` table and a customer→org join.
 - [ ] **Stale-run sweeper** — mark `trace_runs` rows still `in_progress` after >1 h as `failure`. Cron job or Vercel scheduled function.
 - [ ] **Shared workspace package** — promote `db/` and `lib/auth-server.ts` from the duplicated state to a single source of truth.
+
+**Surfaced during v0.6 launch (need addressing):**
+
+- [ ] **Customer-row-on-first-auth.** Today a `customers` row only exists after Stripe webhook fires on `checkout.session.completed`. Users who sign up via Neon Auth but haven't subscribed see a dead-end "No active subscription" empty state on Cloud. Auto-create a `plan: 'free'` row on first auth so users can explore Cloud (read-only or with a low free quota) before deciding to subscribe.
+- [ ] **Stripe webhook upsert-on-email.** The webhook currently INSERTs blindly — if a customer row already exists for the email (e.g., from a manual comp or a re-subscription after cancellation), this creates a duplicate row that the dashboard's `WHERE email = ? LIMIT 1` lookup picks one of at random. Switch to UPSERT keyed on email.
+- [ ] **Email uniqueness constraint on customers table.** Currently only `stripe_customer_id` and `stripe_subscription_id` are unique. Adding a UNIQUE constraint on `email` would prevent the duplicate-row class of bug entirely. Requires a migration + handling for the (rare) edge case where someone changes their Stripe email.
+- [ ] **Retire `/dashboard#api-keys` on site.** Cloud is now the canonical surface; site's section is kept working for back-compat but should eventually be either removed or replaced with a redirect to Cloud.
+- [ ] **Better post-Stripe success page on cloud.** Currently new subscribers see a dead-end "No active subscription" if they land on cloud before the webhook has fired (race condition: success page redirects immediately, webhook can take 1–5s). Add a loading state that polls for the customer row.
 
 ### v0.7.0 — B2B Procurement Vertical (Target: Q3/Q4 2026, ~6 weeks)
 
