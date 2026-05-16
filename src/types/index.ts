@@ -398,6 +398,8 @@ export interface AgentOptions {
   onLog?: (event: AgentLogEvent) => void;
   /** OpenTelemetry-compatible tracer (opt-in, no hard dependency) */
   tracer?: AgentTracer;
+  /** Called once after the agent finishes (success, max-iter, or error). Used by `agorioCloud()` to flush traces. */
+  onComplete?: (result: AgentResult) => void | Promise<void>;
   /** Per-plugin configuration, keyed by plugin name */
   pluginConfigs?: Record<string, Record<string, unknown>>;
   /** Enable AP2 (Agent Payments Protocol) — experimental, mandate-based payment flow */

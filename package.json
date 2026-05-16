@@ -1,6 +1,6 @@
 {
   "name": "@agorio/sdk",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "The open-source toolkit for building AI commerce agents using UCP, ACP, and MCP protocols",
   "type": "module",
   "main": "dist/index.js",
@@ -16,6 +16,10 @@
     "./mock": {
       "types": "./dist/mock/mock-merchant.d.ts",
       "import": "./dist/mock/mock-merchant.js"
+    },
+    "./cloud": {
+      "types": "./dist/cloud/index.d.ts",
+      "import": "./dist/cloud/index.js"
     }
   },
   "files": [

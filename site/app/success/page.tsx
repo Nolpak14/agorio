@@ -31,12 +31,31 @@ function SuccessContent() {
         </div>
 
         <h1 className="text-3xl font-bold mb-3">You&apos;re all set</h1>
-        <p className="text-[var(--muted)] mb-2">
-          Your Agorio Pro license is active. Check your email for your license key and setup instructions.
+        <p className="text-[var(--muted)] mb-6">
+          Your Agorio Pro license is active. Next: create an API key and ship your first trace to Agorio Cloud.
         </p>
-        <p className="text-sm text-[var(--muted)] mb-8">
-          Set <code className="font-mono text-xs bg-[var(--code-bg)] px-1.5 py-0.5 rounded">AGORIO_LICENSE_KEY</code> in your environment to activate the plugins.
-        </p>
+
+        <ol className="text-left text-sm text-[var(--muted)] space-y-2 mb-8 bg-[var(--card)] border border-[var(--border)] rounded-xl p-5">
+          <li>
+            <span className="text-[var(--accent)] font-mono">1.</span>{' '}
+            <Link href="/dashboard#api-keys" className="text-[var(--fg)] hover:text-[var(--accent)] underline">
+              Create an API key
+            </Link>{' '}
+            on the dashboard.
+          </li>
+          <li>
+            <span className="text-[var(--accent)] font-mono">2.</span> Pass it to{' '}
+            <code className="font-mono text-xs text-[var(--accent)]">agorioCloud&#123; apiKey &#125;</code>{' '}
+            in your agent options.
+          </li>
+          <li>
+            <span className="text-[var(--accent)] font-mono">3.</span> See your trace appear at{' '}
+            <Link href="https://cloud.agorio.dev/traces" className="text-[var(--fg)] hover:text-[var(--accent)] underline">
+              cloud.agorio.dev/traces
+            </Link>
+            .
+          </li>
+        </ol>
 
         <div className="flex flex-col sm:flex-row gap-3 justify-center">
           {sessionId && (
@@ -48,13 +67,11 @@ function SuccessContent() {
             </button>
           )}
           <Link
-            href="https://github.com/Nolpak14/agorio"
-            target="_blank"
-            rel="noopener"
+            href="/dashboard#api-keys"
             className="px-5 py-2.5 rounded-lg text-sm text-black font-semibold transition-all duration-300 hover:shadow-[0_0_20px_rgba(0,240,255,0.3)]"
             style={{ background: 'linear-gradient(135deg, var(--accent), #00c8d4)' }}
           >
-            View docs on GitHub
+            Go to dashboard
           </Link>
         </div>
       </div>

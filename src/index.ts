@@ -67,6 +67,21 @@ export type { WooCommerceAdapterOptions } from './adapters/woocommerce.js';
 // Webhook
 export { WebhookServer } from './webhook/webhook-server.js';
 
+// Agorio Cloud client helper
+export { agorioCloud } from './cloud/index.js';
+export type {
+  AgorioCloudOptions,
+  AgorioCloudHandle,
+} from './cloud/index.js';
+export type {
+  SpanRecord,
+  LogRecord,
+  IngestBatch,
+  IngestBatchType,
+  RunStartPayload,
+  RunEndPayload,
+} from './cloud/types.js';
+
 // Enterprise plugin utilities
 export { isEnterprisePlugin } from './types/index.js';
 

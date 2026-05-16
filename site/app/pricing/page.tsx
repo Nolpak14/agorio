@@ -31,21 +31,21 @@ const tiers = [
     name: 'Pro',
     price: '$149',
     period: '/year per team',
-    description: 'Early access to Agorio Cloud — hosted observability, approval webhooks, and CI mock merchants. Or $19/mo billed monthly.',
+    description: 'Agorio Cloud — hosted commerce observability now in beta. Trace every agent run, manage API keys, and gate high-risk tools. Or $19/mo billed monthly.',
     accent: 'var(--accent)',
     popular: true,
-    comingSoon: true,
     features: [
       'Everything in Free, plus:',
-      'Agorio Cloud early access (Q3 2026)',
-      'Hosted commerce observability dashboard',
+      'Agorio Cloud — available now',
       'Per-run agent trace explorer',
-      'Hosted approval-workflow webhook receiver',
-      'License-key-gated CI mock merchants',
+      'API key management (multiple keys, dev/prod/test envs)',
+      'Hosted approval-workflow webhook receiver (coming soon)',
+      'Fleet view / org rollup (coming soon)',
+      'License-key-gated CI mock merchants (coming soon)',
       'EU AI Act compliance audit exports',
       'Priority GitHub issues',
     ],
-    cta: 'Reserve Pro Access',
+    cta: 'Get Pro',
     ctaStyle: 'bg-gradient-to-r from-[var(--accent)] to-[#00c8d4] text-black font-semibold hover:shadow-[0_0_20px_rgba(0,240,255,0.3)]',
   },
   {
@@ -121,19 +121,19 @@ const plugins = [
 const faq = [
   {
     q: 'The plugins are free — what does Pro pay for?',
-    a: 'Agorio is Open Core: the SDK and all governance plugins are MIT and free forever on npm. Pro unlocks access to Agorio Cloud — a hosted observability and control plane that ships in Q3 2026. Think of it as: code is free, the managed service is paid.',
+    a: 'Agorio is Open Core: the SDK and all governance plugins are MIT and free forever on npm. Pro unlocks access to Agorio Cloud — a hosted observability and control plane at cloud.agorio.dev. Think of it as: code is free, the managed service is paid.',
   },
   {
-    q: 'When does Agorio Cloud launch?',
-    a: 'Cloud is targeted for Q3 2026 (v0.6). Pro subscribers today are reserving early access and will be the first to get dashboard credentials, hosted mock merchants for CI, and the approval-webhook receiver when it ships.',
+    q: 'What ships in Agorio Cloud today?',
+    a: 'Per-run agent trace explorer (every span, log, and usage stat your agent emits), API key management with separate dev/prod/test scopes, and EU AI Act-compatible audit exports. The hosted approval-workflow receiver, fleet view, and hosted CI mock merchants are on the v0.6.1 roadmap.',
   },
   {
     q: 'Do I need a license key to use the governance plugins?',
     a: 'No. As of v0.5, all 5 plugins (@agorio/plugin-spending-controls, @agorio/plugin-approval-workflow, @agorio/plugin-audit-trail, @agorio/plugin-agent-identity, @agorio/plugin-policy-engine) are MIT-licensed and available on npm with no license key required.',
   },
   {
-    q: 'What is "Agorio Cloud" exactly?',
-    a: 'A hosted platform at cloud.agorio.dev that adds: per-run agent trace explorer, org-level fleet view, click-to-approve UI for the approval-workflow plugin, URL-accessible mock merchants for CI pipelines, and EU AI Act-compatible audit log exports.',
+    q: 'How do I send my first trace?',
+    a: 'Create an API key on the dashboard, then wire it into your agent: import { agorioCloud, ShoppingAgent } from "@agorio/sdk"; const cloud = agorioCloud({ apiKey: process.env.AGORIO_API_KEY! }); const agent = new ShoppingAgent({ llm, ...cloud }); await agent.run(...); Traces appear at cloud.agorio.dev/traces within seconds.',
   },
 ];
 
@@ -206,7 +206,7 @@ export default function PricingPage() {
         </h1>
         <p className="text-lg text-[var(--muted)] max-w-2xl mx-auto animate-fade-up delay-100">
           The SDK and all governance plugins are free, MIT-licensed, and on npm forever.
-          Pro unlocks <strong className="text-[var(--fg)]">Agorio Cloud</strong> — hosted observability and control plane, launching Q3 2026.
+          Pro unlocks <strong className="text-[var(--fg)]">Agorio Cloud</strong> — hosted observability and control plane, available now.
         </p>
       </section>
 
@@ -237,9 +237,9 @@ export default function PricingPage() {
                     style={{ background: tier.accent }}
                   />
                   <h3 className="font-semibold text-lg">{tier.name}</h3>
-                  {(tier as { comingSoon?: boolean }).comingSoon && (
+                  {tier.name === 'Pro' && (
                     <span className="ml-auto text-xs px-2 py-0.5 rounded-full border border-[var(--accent)] text-[var(--accent)] font-mono">
-                      Coming Q3 2026
+                      Beta
                     </span>
                   )}
                 </div>
@@ -268,7 +268,7 @@ export default function PricingPage() {
                     disabled={checkingOut}
                     className={`w-full text-center px-5 py-2.5 rounded-lg text-sm transition-all duration-300 disabled:opacity-60 ${tier.ctaStyle}`}
                   >
-                    {checkingOut ? 'Redirecting…' : 'Reserve Pro — $149/yr'}
+                    {checkingOut ? 'Redirecting…' : 'Get Pro — $149/yr'}
                   </button>
                   <button
                     onClick={() => handleCheckout(PRICE_MONTHLY)}

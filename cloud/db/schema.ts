@@ -1,3 +1,11 @@
+// ─── KEEP IN SYNC WITH site/db/schema.ts ────────────────────────────────
+// Migrations are owned by site/ (single `drizzle-kit push`). This file is
+// duplicated because each Next.js app brings its own drizzle-orm install,
+// and schema imports must resolve against a single copy. If you change one,
+// change the other in the same commit. Consolidation into a shared/
+// workspace package is tracked for v0.7.
+// ────────────────────────────────────────────────────────────────────────
+
 import {
   pgEnum,
   pgTable,

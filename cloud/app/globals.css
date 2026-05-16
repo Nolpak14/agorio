@@ -1,0 +1,68 @@
+@import "tailwindcss";
+@import '@neondatabase/neon-js/ui/tailwind';
+
+:root {
+  --bg: #050510;
+  --bg-end: #0a0a1a;
+  --fg: #e8eaed;
+  --fg-dim: #b0b4ba;
+  --accent: #00f0ff;
+  --accent-hover: #00d4e0;
+  --accent-glow: rgba(0, 240, 255, 0.15);
+  --violet: #8b5cf6;
+  --amber: #f59e0b;
+  --muted: #6b7280;
+  --border: #1e293b;
+  --border-bright: #334155;
+  --card: #0c0c1d;
+  --card-hover: #111127;
+  --code-bg: #0d0d20;
+  --terminal-bar: #161630;
+}
+
+body {
+  background: linear-gradient(180deg, var(--bg) 0%, var(--bg-end) 100%);
+  background-attachment: fixed;
+  color: var(--fg);
+  font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+h1, h2, h3, h4 {
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  letter-spacing: -0.02em;
+}
+
+::selection {
+  background: var(--accent);
+  color: #000;
+}
+
+.cloud-nav {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: rgba(5, 5, 16, 0.85);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
+}
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  border: 1px solid;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.status-pill.success     { color: #4ade80; border-color: rgba(74, 222, 128, 0.4); background: rgba(74, 222, 128, 0.1); }
+.status-pill.failure     { color: #f87171; border-color: rgba(248, 113, 113, 0.4); background: rgba(248, 113, 113, 0.1); }
+.status-pill.in_progress { color: var(--accent); border-color: rgba(0, 240, 255, 0.4); background: rgba(0, 240, 255, 0.1); }
+
+.level-debug { color: var(--muted); }
+.level-info  { color: var(--fg); }
+.level-warn  { color: #facc15; }
+.level-error { color: #f87171; }

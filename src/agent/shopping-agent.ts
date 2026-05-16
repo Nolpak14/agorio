@@ -201,7 +201,9 @@ export class ShoppingAgent {
       if (llmResponse.finishReason === 'stop' || llmResponse.toolCalls.length === 0) {
         this.emitLog('info', 'Agent run completed', { iterations: this.iteration, success: true });
         runSpan?.end();
-        return this.buildResult(true, llmResponse.content);
+        const result = this.buildResult(true, llmResponse.content);
+        await this.options.onComplete?.(result);
+        return result;
       }
 
       // Add the assistant's response (with tool calls) to message history
@@ -253,10 +255,12 @@ export class ShoppingAgent {
     // Max iterations reached
     this.emitLog('warn', 'Agent reached max iterations', { maxIterations: this.options.maxIterations });
     runSpan?.end();
-    return this.buildResult(
+    const result = this.buildResult(
       false,
       `Agent reached maximum iterations (${this.options.maxIterations}) without completing the task.`
     );
+    await this.options.onComplete?.(result);
+    return result;
   }
 
   /**
@@ -355,6 +359,7 @@ export class ShoppingAgent {
           this.emitLog('info', 'Agent stream completed', { iterations: this.iteration, success: true });
           runSpan?.end();
           const result = this.buildResult(true, textContent);
+          await this.options.onComplete?.(result);
           yield { type: 'done', result, iteration: this.iteration, timestamp: Date.now() };
           return;
         }
@@ -427,14 +432,18 @@ export class ShoppingAgent {
         false,
         `Agent reached maximum iterations (${this.options.maxIterations}) without completing the task.`
       );
+      await this.options.onComplete?.(result);
       yield { type: 'done', result, iteration: this.iteration, timestamp: Date.now() };
     } catch (err) {
-      this.emitLog('error', 'Agent stream error', { error: err instanceof Error ? err.message : String(err) });
+      const errMsg = err instanceof Error ? err.message : String(err);
+      this.emitLog('error', 'Agent stream error', { error: errMsg });
       runSpan?.end();
+      const result = this.buildResult(false, '', errMsg);
+      await this.options.onComplete?.(result);
       yield {
         type: 'error',
         iteration: this.iteration,
-        error: err instanceof Error ? err.message : String(err),
+        error: errMsg,
         timestamp: Date.now(),
       };
     }
@@ -1626,7 +1635,7 @@ export class ShoppingAgent {
     return step;
   }
 
-  private buildResult(success: boolean, answer: string): AgentResult {
+  private buildResult(success: boolean, answer: string, error?: string): AgentResult {
     const discovery = (() => {
       // Check multi-merchant contexts first
       if (this.activeMerchantDomain) {
@@ -1689,6 +1698,7 @@ export class ShoppingAgent {
       merchant: discovery ?? undefined,
       checkout,
       usage: this.buildUsageSummary(),
+      error,
     };
   }
 

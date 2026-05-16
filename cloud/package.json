@@ -1,5 +1,5 @@
 {
-  "name": "agorio-site",
+  "name": "agorio-cloud",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -7,28 +7,22 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "db:push": "drizzle-kit push",
-    "db:studio": "drizzle-kit studio"
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@agorio/sdk": "file:..",
     "@neondatabase/neon-js": "^0.4.0-beta",
     "@neondatabase/serverless": "^1.1.0",
     "drizzle-orm": "^0.45.2",
-    "express": "^4.22.1",
     "next": "^15.2.0",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0",
-    "resend": "^6.12.2",
-    "stripe": "^22.1.0"
+    "react-dom": "^19.0.0"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.0.0",
-    "@types/express": "^5.0.6",
     "@types/node": "^22.0.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
-    "drizzle-kit": "^0.31.10",
     "tailwindcss": "^4.0.0",
     "typescript": "^5.6.0"
   }

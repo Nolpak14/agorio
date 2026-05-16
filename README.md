@@ -448,9 +448,31 @@ To build your own adapter, implement the `LlmAdapter` interface and pass it to `
 
 ---
 
+## Send traces to Agorio Cloud
+
+Agorio Cloud is the hosted observability dashboard at [cloud.agorio.dev](https://cloud.agorio.dev). Pro subscribers get a per-run trace explorer with the tool-call timeline, LLM token counts, structured logs, and the final answer for every agent run. Setup is a single helper that spreads into `AgentOptions`:
+
+```typescript
+import { ShoppingAgent, agorioCloud, ClaudeAdapter } from '@agorio/sdk';
+
+const cloud = agorioCloud({ apiKey: process.env.AGORIO_API_KEY! });
+
+const agent = new ShoppingAgent({
+  llm: new ClaudeAdapter({ apiKey: process.env.ANTHROPIC_API_KEY! }),
+  ...cloud, // contributes tracer, onLog, onStep, onComplete
+});
+
+await agent.run('find me running shoes under $100');
+// Trace appears at cloud.agorio.dev/traces within seconds.
+```
+
+Get an API key from your [dashboard](https://agorio.dev/dashboard#api-keys) after subscribing. Network failures never break your agent — `agorioCloud()` swallows errors and only emits `console.warn` on bad/revoked keys or unreachable endpoints. See [docs/cloud-setup.md](docs/cloud-setup.md) for the full guide.
+
+---
+
 ## Testing
 
-Agorio uses [Vitest](https://vitest.dev/) and ships with **301 tests across 17 test files** covering the UCP client, ACP client, MCP transport, AP2 client, mock merchants, agent orchestration, plugins, enterprise plugin middleware, observability, streaming, CLI, webhooks, multi-merchant, Shopify adapter, WooCommerce adapter, and all four LLM adapters.
+Agorio uses [Vitest](https://vitest.dev/) and ships with **306 tests across 18 test files** covering the UCP client, ACP client, MCP transport, AP2 client, mock merchants, agent orchestration, plugins, enterprise plugin middleware, observability, streaming, CLI, webhooks, multi-merchant, Shopify adapter, WooCommerce adapter, Agorio Cloud helper, and all four LLM adapters.
 
 ```bash
 # Run all tests
@@ -507,21 +529,15 @@ See [docs/ROADMAP.md](docs/ROADMAP.md) for the full plan with rationale and mark
 - **v0.3** — MCP transport, plugin system, observability, CLI, Ollama adapter, reference agents. 191 tests.
 - **v0.4** — Multi-merchant, Shopify adapter, webhooks, browser playground, 17 tools. 233 tests.
 - **v0.4.2 (May 2026)** — Enterprise plugin system (5 governance plugins), Stripe billing, Neon Postgres, customer dashboard, Resend email, `agorio plugin` CLI. 252 tests.
+- **v0.5 (May 2026)** — Open Core release: 5 plugins relicensed MIT and published as `@agorio/plugin-*`, WooCommerce adapter, Shopify UCP migration support, experimental AP2 client. 301 tests.
+- **v0.6 (May 2026)** — Agorio Cloud MVP: `agorioCloud({ apiKey })` helper, hosted trace explorer at `cloud.agorio.dev`, API key management on the dashboard. 306 tests.
 
-### Next (v0.5) — Open Core Release, ~3 weeks
+### Next (v0.6.1) — Cloud feature completion, ~3 weeks
 
-- [x] **Open-source the 5 enterprise plugins** — relicensed MIT, ready to publish as `@agorio/plugin-*`
-- [x] **UCP profile updates** — `ShopifyAdapter` now prefers `/.well-known/ucp` discovery for all `*.myshopify.com` stores, with automatic fallback to Storefront GraphQL. Handles both array and object-keyed capability formats. Set `preferUcp: false` to force GraphQL-only mode.
-- [x] **AP2 client (initial)** — Mandate signing (IntentMandate → CartMandate → SignedMandate), mock signer for tests, `Ap2Client.pay()` convenience method
-- [x] **WooCommerce adapter** — REST API v3, auto-detected via `/wp-json/wc/v3` probe, read-only without credentials, checkout with consumer key/secret
-- [x] **Pricing pivot** — Pro tier repositioned as Agorio Cloud early-access
-
-### Then (v0.6) — Agorio Cloud v1, Q3 2026
-
-- [ ] Hosted commerce-observability dashboard (`cloud.agorio.dev`)
-- [ ] `agorioCloud({ apiKey })` SDK helper wraps existing tracer/onLog/usage
 - [ ] Hosted approval-workflow webhook receiver + click-to-approve UI
-- [ ] License-key-gated CI mock merchants
+- [ ] Hosted, license-key-gated mock UCP/ACP/MCP merchants for CI pipelines
+- [ ] Fleet view / org-level rollup
+- [ ] Stale-run sweeper
 
 ### Then (v0.7) — B2B Procurement Vertical, Q3/Q4 2026
 
