@@ -14,6 +14,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
       replace={router.replace}
       Link={Link}
       redirectTo="/dashboard"
+      defaultTheme="dark"
     >
       {children}
     </NeonAuthUIProvider>

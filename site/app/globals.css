@@ -22,6 +22,41 @@
   --terminal-bar: #161630;
 }
 
+/*
+ * Map better-auth-ui's internal --neon-* tokens onto Agorio brand values.
+ * Defined for both :root and :root.dark so the form renders correctly
+ * regardless of which mode the theme script applies (we force dark via
+ * NeonAuthUIProvider but pre-script paint should still be correct).
+ *
+ * We override the library's --neon-* names directly (not the shadcn
+ * --card/--primary/... aliases) to avoid colliding with this project's
+ * existing brand variables of the same name (e.g. our --accent is cyan;
+ * shadcn's --accent is a hover surface).
+ */
+:root,
+:root.dark {
+  --neon-background: transparent;
+  --neon-foreground: var(--fg);
+  --neon-card: var(--card);
+  --neon-card-foreground: var(--fg);
+  --neon-popover: var(--card);
+  --neon-popover-foreground: var(--fg);
+  --neon-primary: var(--accent);
+  --neon-primary-foreground: #050510;
+  --neon-secondary: var(--code-bg);
+  --neon-secondary-foreground: var(--fg);
+  --neon-muted: var(--code-bg);
+  --neon-muted-foreground: #8b95a3;
+  --neon-accent: var(--card-hover);
+  --neon-accent-foreground: var(--fg);
+  --neon-destructive: #f87171;
+  --neon-destructive-foreground: #050510;
+  --neon-border: var(--border);
+  --neon-input: var(--border);
+  --neon-ring: var(--accent);
+  --neon-radius: 0.75rem;
+}
+
 /* ── Base ── */
 body {
   background: linear-gradient(180deg, var(--bg) 0%, var(--bg-end) 100%);

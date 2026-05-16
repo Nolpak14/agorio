@@ -20,6 +20,34 @@
   --terminal-bar: #161630;
 }
 
+/*
+ * Map better-auth-ui's internal --neon-* tokens onto Agorio brand values.
+ * Keep in sync with site/app/globals.css.
+ */
+:root,
+:root.dark {
+  --neon-background: transparent;
+  --neon-foreground: var(--fg);
+  --neon-card: var(--card);
+  --neon-card-foreground: var(--fg);
+  --neon-popover: var(--card);
+  --neon-popover-foreground: var(--fg);
+  --neon-primary: var(--accent);
+  --neon-primary-foreground: #050510;
+  --neon-secondary: var(--code-bg);
+  --neon-secondary-foreground: var(--fg);
+  --neon-muted: var(--code-bg);
+  --neon-muted-foreground: #8b95a3;
+  --neon-accent: var(--card-hover);
+  --neon-accent-foreground: var(--fg);
+  --neon-destructive: #f87171;
+  --neon-destructive-foreground: #050510;
+  --neon-border: var(--border);
+  --neon-input: var(--border);
+  --neon-ring: var(--accent);
+  --neon-radius: 0.75rem;
+}
+
 body {
   background: linear-gradient(180deg, var(--bg) 0%, var(--bg-end) 100%);
   background-attachment: fixed;
