@@ -56,6 +56,10 @@ export type { OllamaAdapterOptions } from './llm/ollama.js';
 
 // Agent
 export { ShoppingAgent } from './agent/shopping-agent.js';
+export { runSubAgent, DEFAULT_SUB_AGENT_MAX_DEPTH } from './agent/sub-agent.js';
+export type { RunSubAgentOptions } from './agent/sub-agent.js';
+export { AgentChain } from './agent/agent-chain.js';
+export type { AgentChainRunOptions } from './agent/agent-chain.js';
 
 // Merchant adapters
 export { ShopifyAdapter, ShopifyAdapterError } from './adapters/shopify.js';
@@ -66,6 +70,21 @@ export type { WooCommerceAdapterOptions } from './adapters/woocommerce.js';
 
 // Webhook
 export { WebhookServer } from './webhook/webhook-server.js';
+
+// Persistent sessions
+export { MemorySessionStorage } from './session/memory-storage.js';
+export { FileSessionStorage } from './session/file-storage.js';
+export type { FileSessionStorageOptions } from './session/file-storage.js';
+
+// HTTP primitives (retry + rate-limit) — compose into adapter `fetch:` options
+export { createHttpClient, withRetry, withRateLimit, TokenBucket } from './http/index.js';
+export type {
+  HttpClientOptions,
+  RetryOptions,
+  TokenBucketOptions,
+  BucketFactory,
+  RateLimitBucketContext,
+} from './http/index.js';
 
 // Agorio Cloud client helper
 export { agorioCloud } from './cloud/index.js';
@@ -136,6 +155,13 @@ export type {
   // Agent types
   AgentOptions,
   AgentPlugin,
+  SubAgent,
+  SubAgentBuildContext,
+  AgentChainStep,
+  ChainContext,
+  ChainResultEntry,
+  SessionState,
+  SessionStorage,
   EnterprisePlugin,
   PluginManifest,
   PluginContext,

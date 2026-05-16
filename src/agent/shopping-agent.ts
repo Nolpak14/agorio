@@ -18,6 +18,7 @@ import { SHOPPING_AGENT_TOOLS } from '../llm/tools.js';
 import {
   isEnterprisePlugin,
 } from '../types/index.js';
+import { runSubAgent, DEFAULT_SUB_AGENT_MAX_DEPTH } from './sub-agent.js';
 import type {
   AgentOptions,
   AgentPlugin,
@@ -41,6 +42,9 @@ import type {
   MerchantAdapter,
   ProductReviewResult,
   PluginContext,
+  SubAgent,
+  SessionState,
+  SessionStorage,
 } from '../types/index.js';
 
 const DEFAULT_MAX_ITERATIONS = 20;
@@ -68,6 +72,19 @@ export class ShoppingAgent {
 
   // Adapters for real merchant connectivity
   private readonly adapters: MerchantAdapter[];
+
+  // Sub-agent composition
+  private readonly subAgents: Map<string, SubAgent>;
+  private readonly subAgentDepth: number;
+  private readonly subAgentMaxDepth: number;
+
+  // Persistent sessions
+  private readonly sessionStorage: SessionStorage | null;
+  private readonly sessionId: string | null;
+  private readonly sessionCustomerId: string | null;
+  private currentMessages: ChatMessage[] = [];
+  private currentTask: string | null = null;
+  private hydrated = false;
 
   // Webhook configuration
   private readonly webhookUrl: string | null;
@@ -100,6 +117,9 @@ export class ShoppingAgent {
     this.adapters = options.adapters ?? [];
     this.webhookUrl = options.webhookUrl ?? null;
     this.webhookSecret = options.webhookSecret ?? null;
+    this.sessionStorage = options.sessionStorage ?? null;
+    this.sessionId = options.sessionId ?? null;
+    this.sessionCustomerId = options.sessionCustomerId ?? null;
 
     // Register plugins
     this.plugins = new Map();
@@ -125,7 +145,52 @@ export class ShoppingAgent {
       });
     }
 
-    this.allTools = [...SHOPPING_AGENT_TOOLS, ...pluginTools];
+    // Register sub-agents
+    this.subAgents = new Map();
+    this.subAgentDepth = options._subAgentDepth ?? 0;
+    this.subAgentMaxDepth = options.subAgentMaxDepth ?? DEFAULT_SUB_AGENT_MAX_DEPTH;
+    const subAgentTools: ToolDefinition[] = [];
+
+    for (const sub of options.subAgents ?? []) {
+      if (builtInNames.has(sub.name) || this.plugins.has(sub.name)) {
+        throw new Error(
+          `Sub-agent "${sub.name}" conflicts with an existing tool/plugin name.`
+        );
+      }
+      if (this.subAgents.has(sub.name)) {
+        throw new Error(`Duplicate sub-agent name: "${sub.name}".`);
+      }
+      this.subAgents.set(sub.name, sub);
+    }
+
+    if (this.subAgents.size > 0) {
+      subAgentTools.push({
+        name: 'invoke_sub_agent',
+        description:
+          'Delegate a sub-task to a specialized sub-agent. Available sub-agents: ' +
+          [...this.subAgents.values()]
+            .map(s => `"${s.name}" — ${s.description}`)
+            .join('; ') +
+          '. Use this to break a complex task into focused stages (e.g., find-best-price → checkout → track-shipment).',
+        parameters: {
+          type: 'object',
+          properties: {
+            sub_agent: {
+              type: 'string',
+              enum: [...this.subAgents.keys()],
+              description: 'Name of the sub-agent to invoke.',
+            },
+            input: {
+              type: 'string',
+              description: 'Task description for the sub-agent (natural language).',
+            },
+          },
+          required: ['sub_agent', 'input'],
+        },
+      });
+    }
+
+    this.allTools = [...SHOPPING_AGENT_TOOLS, ...pluginTools, ...subAgentTools];
 
     this.pluginContext = {
       getCart: () => this.getCart(),
@@ -167,12 +232,23 @@ export class ShoppingAgent {
       this.pluginsInitialized = true;
     }
 
-    const messages: ChatMessage[] = [
-      { role: 'user', content: task },
-    ];
+    const resumed = await this.tryHydrate();
 
-    this.iteration = 0;
-    this.emitLog('info', 'Agent run started', { task: task.slice(0, 200) });
+    const messages: ChatMessage[] = resumed
+      ? this.currentMessages
+      : [{ role: 'user', content: task }];
+
+    this.currentTask = resumed ? this.currentTask ?? task : task;
+    this.currentMessages = messages;
+
+    if (!resumed) {
+      this.iteration = 0;
+    }
+    this.emitLog('info', resumed ? 'Agent run resumed' : 'Agent run started', {
+      task: (this.currentTask ?? task).slice(0, 200),
+      iteration: this.iteration,
+      sessionId: this.sessionId ?? undefined,
+    });
 
     while (this.iteration < this.options.maxIterations) {
       this.iteration++;
@@ -250,6 +326,8 @@ export class ShoppingAgent {
           toolCallId: toolCall.name,
         });
       }
+
+      await this.persistSession();
     }
 
     // Max iterations reached
@@ -653,6 +731,13 @@ export class ShoppingAgent {
 
       case 'subscribe_order_updates':
         result = await this.toolSubscribeOrderUpdates(args.orderId as string);
+        break;
+
+      case 'invoke_sub_agent':
+        result = await this.toolInvokeSubAgent(
+          args.sub_agent as string,
+          args.input as string
+        );
         break;
 
       default: {
@@ -1544,6 +1629,142 @@ export class ShoppingAgent {
     } catch (err) {
       return {
         error: `Failed to subscribe to order updates: ${err instanceof Error ? err.message : String(err)}`,
+      };
+    }
+  }
+
+  // ─── Session persistence ───
+
+  private buildSnapshot(): SessionState | null {
+    if (!this.sessionStorage || !this.sessionId) return null;
+
+    const merchantStates = [...this.merchants.entries()].map(([domain, ctx]) => ({
+      domain,
+      protocol: ctx.protocol,
+      cart: ctx.cart.map(item => ({ ...item })),
+      checkoutSessionId: ctx.checkoutSessionId,
+      shippingAddress: ctx.shippingAddress,
+    }));
+
+    const pluginState: Record<string, Record<string, unknown>> = {};
+    for (const [name, plugin] of this.plugins) {
+      if (isEnterprisePlugin(plugin) && plugin.getState) {
+        try {
+          pluginState[name] = plugin.getState();
+        } catch (err) {
+          this.emitLog('warn', `Plugin getState failed for ${name}`, {
+            error: err instanceof Error ? err.message : String(err),
+          });
+        }
+      }
+    }
+
+    return {
+      sessionId: this.sessionId,
+      task: this.currentTask ?? '',
+      iteration: this.iteration,
+      messages: this.currentMessages,
+      merchants: merchantStates,
+      activeMerchantDomain: this.activeMerchantDomain,
+      pluginState: Object.keys(pluginState).length > 0 ? pluginState : undefined,
+      customerId: this.sessionCustomerId ?? undefined,
+      savedAt: new Date().toISOString(),
+    };
+  }
+
+  private async persistSession(): Promise<void> {
+    const snapshot = this.buildSnapshot();
+    if (!snapshot || !this.sessionStorage) return;
+    try {
+      await this.sessionStorage.save(snapshot);
+    } catch (err) {
+      this.emitLog('warn', 'Session save failed', {
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
+
+  private async tryHydrate(): Promise<boolean> {
+    if (this.hydrated) return false;
+    if (!this.sessionStorage || !this.sessionId) return false;
+    let state: SessionState | null = null;
+    try {
+      state = await this.sessionStorage.load(this.sessionId);
+    } catch (err) {
+      this.emitLog('warn', 'Session load failed', {
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+    if (!state) return false;
+
+    this.currentTask = state.task;
+    this.currentMessages = state.messages;
+    this.iteration = state.iteration;
+    this.activeMerchantDomain = state.activeMerchantDomain;
+
+    this.merchants = new Map();
+    for (const m of state.merchants) {
+      const adapter = m.protocol === 'adapter' ? this.findAdapterForDomain(m.domain) : undefined;
+      this.merchants.set(m.domain, {
+        domain: m.domain,
+        protocol: m.protocol,
+        adapter,
+        cart: m.cart,
+        checkoutSessionId: m.checkoutSessionId,
+        shippingAddress: m.shippingAddress,
+        orders: new Map(),
+      });
+    }
+
+    if (state.pluginState) {
+      for (const [name, pluginSnap] of Object.entries(state.pluginState)) {
+        const plugin = this.plugins.get(name);
+        if (plugin && isEnterprisePlugin(plugin) && plugin.hydrate) {
+          try {
+            plugin.hydrate(pluginSnap);
+          } catch (err) {
+            this.emitLog('warn', `Plugin hydrate failed for ${name}`, {
+              error: err instanceof Error ? err.message : String(err),
+            });
+          }
+        }
+      }
+    }
+
+    this.hydrated = true;
+    return true;
+  }
+
+  private async toolInvokeSubAgent(subAgentName: string, input: string): Promise<unknown> {
+    const subAgent = this.subAgents.get(subAgentName);
+    if (!subAgent) {
+      return { error: `Unknown sub-agent: ${subAgentName}` };
+    }
+    if (typeof input !== 'string' || input.length === 0) {
+      return { error: 'invoke_sub_agent: "input" must be a non-empty string' };
+    }
+    try {
+      const result = await runSubAgent({
+        subAgent,
+        input,
+        parentTracer: this.options.tracer,
+        parentOnLog: this.options.onLog,
+        maxDepth: this.subAgentMaxDepth,
+        parentDepth: this.subAgentDepth,
+      });
+      return {
+        sub_agent: subAgentName,
+        success: result.success,
+        answer: result.answer,
+        iterations: result.iterations,
+        usage: result.usage,
+        error: result.error,
+      };
+    } catch (err) {
+      return {
+        sub_agent: subAgentName,
+        success: false,
+        error: err instanceof Error ? err.message : String(err),
       };
     }
   }

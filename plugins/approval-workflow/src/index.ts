@@ -156,5 +156,14 @@ export function createApprovalWorkflowPlugin(
         resolved: [...resolvedApprovals.values()],
       };
     },
+
+    hydrate(state) {
+      pendingApprovals.clear();
+      resolvedApprovals.clear();
+      const pending = Array.isArray(state.pending) ? (state.pending as ApprovalRequest[]) : [];
+      const resolved = Array.isArray(state.resolved) ? (state.resolved as ApprovalRequest[]) : [];
+      for (const req of pending) pendingApprovals.set(req.requestId, req);
+      for (const req of resolved) resolvedApprovals.set(req.requestId, req);
+    },
   };
 }

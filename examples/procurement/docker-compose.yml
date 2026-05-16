@@ -1,0 +1,44 @@
+version: '3.8'
+
+# Local WooCommerce sandbox for the full-demo mode of the procurement example.
+# Boots a MariaDB + WordPress + WooCommerce stack at http://localhost:8088.
+#
+# After `docker-compose up -d`:
+#   1) Open http://localhost:8088 and complete WordPress install
+#   2) Install + activate the WooCommerce plugin
+#   3) Add 3 demo products (chair, desk, monitor)
+#   4) Settings → Advanced → REST API → generate a consumer key + secret
+#   5) Export them as AGORIO_WC_KEY / AGORIO_WC_SECRET
+#
+# Tear down: `docker-compose down -v` (the -v removes the persistent volumes).
+
+services:
+  db:
+    image: mariadb:11
+    restart: unless-stopped
+    environment:
+      MARIADB_DATABASE: wordpress
+      MARIADB_USER: wp
+      MARIADB_PASSWORD: wp
+      MARIADB_ROOT_PASSWORD: rootpw
+    volumes:
+      - wp_db:/var/lib/mysql
+
+  wordpress:
+    image: wordpress:6
+    restart: unless-stopped
+    depends_on:
+      - db
+    ports:
+      - "8088:80"
+    environment:
+      WORDPRESS_DB_HOST: db:3306
+      WORDPRESS_DB_USER: wp
+      WORDPRESS_DB_PASSWORD: wp
+      WORDPRESS_DB_NAME: wordpress
+    volumes:
+      - wp_content:/var/www/html
+
+volumes:
+  wp_db:
+  wp_content:

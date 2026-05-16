@@ -123,14 +123,19 @@ Detailed plan + post-launch patches: [docs/v0.6-plan.md](v0.6-plan.md). User-fac
 - [ ] **Retire `/dashboard#api-keys` on site.** Cloud is now the canonical surface; site's section is kept working for back-compat but should eventually be either removed or replaced with a redirect to Cloud.
 - [ ] **Better post-Stripe success page on cloud.** Currently new subscribers see a dead-end "No active subscription" if they land on cloud before the webhook has fired (race condition: success page redirects immediately, webhook can take 1–5s). Add a loading state that polls for the customer row.
 
-### v0.7.0 — B2B Procurement Vertical (Target: Q3/Q4 2026, ~6 weeks)
+### v0.7.0 — B2B Procurement Vertical (Target: Q3/Q4 2026, ~6 weeks) — IN PROGRESS
 
-**Goal:** Ship the killer enterprise reference agent that demonstrates Agorio's value to procurement teams.
+**Goal:** Ship the killer enterprise reference agent that demonstrates Agorio's value to procurement teams. Detailed plan: [docs/v0.7-plan.md](v0.7-plan.md).
 
-- [ ] **Procurement reference agent** — multi-merchant price comparison, approval thresholds, full audit trail, complete purchase flow. End-to-end demo against MockMerchant + WooCommerce + Shopify B2B.
-- [ ] **Agent composition primitives** — chain a "find best price" agent → "checkout" agent → "track shipment" agent
-- [ ] **Persistent sessions** — resume interrupted shopping flows
-- [ ] **Rate limiting & retry** — production-grade HTTP client behavior
+- [x] **HTTP retry + rate-limit primitives** — `createHttpClient`, `withRetry`, `TokenBucket`, `withRateLimit`. Drop into any adapter's `fetch:` option.
+- [x] **Agent composition primitives** — `runSubAgent` + `AgentChain`, with `parent_span_id` injection so Cloud renders multi-agent runs as a tree.
+- [x] **Persistent sessions** — `SessionStorage` interface, `MemorySessionStorage` + `FileSessionStorage` in-tree, separate `@agorio/session-redis` package. Plugin `hydrate()` hook for stateful plugins (approval-workflow uses it).
+- [x] **`@agorio/plugin-procurement`** — sixth governance plugin with PO# tracking, vendor lookup, expense categorization, `requirePoOnCheckout` enforcement.
+- [x] **Procurement reference agent** in `examples/procurement/` with CI smoke test against three MockMerchants. WooCommerce docker-compose + Shopify dev store setup documented for full-demo mode.
+- [x] **Cloud trace explorer hierarchy** — sub-agent strip + indented spans table.
+- [x] **Marketing surface** — `agorio.dev/procurement` landing page, README "v0.7" section.
+- [ ] **Design partner** — outbound to 5–10 mid-market procurement teams; target 1 signed by week 4 (out-of-band marketing work, tracked separately).
+- [ ] **Release `@agorio/sdk@0.7.0`** + `@agorio/plugin-procurement@0.1.0` + `@agorio/session-redis@0.1.0` to npm.
 
 ### v0.8.0 — Compliance & Hardening (Target: Q4 2026, ~4 weeks)
 

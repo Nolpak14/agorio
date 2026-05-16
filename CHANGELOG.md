@@ -7,6 +7,41 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [0.7.0] — Unreleased — B2B Procurement Vertical
+
+The headline B2B demo plus the primitives that make it non-trivial to clone. See [`docs/v0.7-plan.md`](docs/v0.7-plan.md) for the full plan and tracks [issue #37](https://github.com/Nolpak14/agorio/issues/37).
+
+### Added
+
+- **`AgentChain` + sub-agent primitive** (`src/agent/sub-agent.ts`, `src/agent/agent-chain.ts`) — compose specialized agents (find-best-price → checkout → track-shipment) with first-class Cloud span hierarchy via injected `parent_span_id` + `sub_agent_name` attributes. Recursion guard at depth 3.
+- **`invoke_sub_agent` tool** auto-registered on `ShoppingAgent` when `subAgents` is configured.
+- **`SessionStorage` interface** (`src/types/index.ts`) + `MemorySessionStorage` and `FileSessionStorage` in-tree (`src/session/`). New `sessionStorage`, `sessionId`, `sessionCustomerId` options on `AgentOptions`. Agents save state after every iteration; constructing a new agent with the same `sessionId` resumes from the persisted snapshot.
+- **Plugin `hydrate?(state)` hook** on `EnterprisePlugin` (paired with the existing `getState?()`). The `approval-workflow` plugin uses it to survive process restarts mid-approval-wait.
+- **`@agorio/session-redis@0.1.0`** new separate npm package — `RedisSessionStorage` with TTL support and customer secondary index. Production answer for durable agent sessions.
+- **`@agorio/plugin-procurement@0.1.0`** new npm package — PO# generation (sequential / uuid / custom), vendor lookup, expense categorization, `requirePoOnCheckout` enforcement, `procurement_completed` audit event.
+- **HTTP primitives** (`src/http/`) — `createHttpClient({ retry?, rateLimit? })` factory, `withRetry` exponential backoff with `Retry-After` support, `TokenBucket` + `withRateLimit` per-origin throttling. Drop into any adapter's existing `fetch:` option.
+- **Cloud trace explorer** — sub-agent strip showing each invocation's depth + duration, indented spans tree based on `attributes.depth` / `parent_span_id`.
+- **`examples/procurement/`** — reference agent + CI smoke test running the 3-step chain against three MockMerchants. Documents WooCommerce docker-compose and Shopify dev store setup for the full-demo mode.
+- **Marketing surface** — new `agorio.dev/procurement` landing page with feature grid + full code sample. README "New in v0.7" section near the top.
+
+### Changed
+
+- `ShoppingAgent.run()` now calls `tryHydrate()` at start and `persistSession()` after each iteration when `sessionStorage` + `sessionId` are configured. No behavior change when the options are absent.
+- `ShoppingAgent` constructor accepts `subAgents`, `subAgentMaxDepth`, `sessionStorage`, `sessionId`, `sessionCustomerId` (all optional, backward-compatible).
+- `src/http/rate-limit.ts` uses `Parameters<typeof globalThis.fetch>[0]` instead of `RequestInfo` for portability across tsconfig lib settings.
+
+### Tests
+
+- +15 HTTP primitive tests (`http-retry`, `http-rate-limit`)
+- +11 sub-agent + chain tests (`sub-agent`, `agent-chain`)
+- +13 session-storage tests (memory + file storages + ShoppingAgent resume integration)
+- +4 RedisSessionStorage tests (separate package)
+- +12 procurement plugin tests (separate package)
+- +1 procurement example smoke test
+- **Total SDK suite: 362 passing across 29 files** (was 306/18 at v0.6).
+
+---
+
 ## [0.6.0-infra] — 2026-05-16 — Cloud infrastructure patches (no SDK version bump)
 
 After `@agorio/sdk@0.6.0` shipped to npm, a series of post-launch patches landed on the site and cloud apps to fix the auth flow, polish the visual design, and migrate API-key management onto Cloud where it belongs. No SDK code changed — this is purely site / cloud infrastructure.

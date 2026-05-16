@@ -1,0 +1,48 @@
+{
+  "name": "@agorio/session-redis",
+  "version": "0.1.0",
+  "description": "Redis-backed SessionStorage for Agorio SDK — durable agent session persistence across process restarts",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "prepublishOnly": "npm run build"
+  },
+  "peerDependencies": {
+    "@agorio/sdk": "^0.7.0",
+    "ioredis": "^5.4.0"
+  },
+  "peerDependenciesMeta": {
+    "ioredis": {
+      "optional": false
+    }
+  },
+  "devDependencies": {
+    "@agorio/sdk": "file:../..",
+    "@types/node": "^22.9.0",
+    "typescript": "^5.6.3",
+    "vitest": "^4.0.17"
+  },
+  "keywords": [
+    "agorio",
+    "session",
+    "redis",
+    "ioredis",
+    "shopping-agent",
+    "ai-agent",
+    "persistence"
+  ],
+  "author": "Agorio",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Nolpak14/agorio",
+    "directory": "packages/session-redis"
+  }
+}

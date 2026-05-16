@@ -359,6 +359,8 @@ export interface EnterprisePlugin extends AgentPlugin {
   ): Promise<void> | void;
   configure?(config: Record<string, unknown>): void;
   getState?(): Record<string, unknown>;
+  /** Optional — rehydrate from a snapshot previously returned by getState(). */
+  hydrate?(state: Record<string, unknown>): void;
 }
 
 export function isEnterprisePlugin(plugin: AgentPlugin): plugin is EnterprisePlugin {
@@ -369,6 +371,101 @@ export function isEnterprisePlugin(plugin: AgentPlugin): plugin is EnterprisePlu
     || 'manifest' in plugin
     || 'configure' in plugin
     || 'getState' in plugin;
+}
+
+// ─── Persistent Sessions ───
+
+/**
+ * Serializable snapshot of a ShoppingAgent's mid-run state. Persist via a
+ * SessionStorage implementation; rehydrate by passing `sessionId` to a
+ * ShoppingAgent constructed with the same `sessionStorage`. Adapter and LLM
+ * instances are NOT serialized — they must be re-supplied at construction.
+ */
+export interface SessionState {
+  sessionId: string;
+  task: string;
+  iteration: number;
+  /** Full conversation history needed to continue the LLM loop. */
+  messages: ChatMessage[];
+  /** Persisted per-merchant state (cart, checkout session, shipping). */
+  merchants: Array<{
+    domain: string;
+    protocol: 'ucp' | 'acp' | 'adapter';
+    cart: CartItem[];
+    checkoutSessionId: string | null;
+    shippingAddress: ShippingAddress | null;
+  }>;
+  activeMerchantDomain: string | null;
+  /** Plugin state keyed by plugin name (`getState()` / `hydrate()` round-trip). */
+  pluginState?: Record<string, Record<string, unknown>>;
+  /** Optional customer/owner id for tenant-scoped storages. */
+  customerId?: string;
+  savedAt: string;
+  /** Agorio SDK version that wrote this snapshot. */
+  sdkVersion?: string;
+}
+
+export interface SessionStorage {
+  save(state: SessionState): Promise<void>;
+  load(sessionId: string): Promise<SessionState | null>;
+  list(filter?: { customerId?: string; before?: Date }): Promise<SessionState[]>;
+  delete(sessionId: string): Promise<void>;
+}
+
+// ─── Agent Composition (Sub-Agent + AgentChain) ───
+
+/**
+ * A child agent that can be invoked from a parent ShoppingAgent via the
+ * built-in `invoke_sub_agent` tool, or composed sequentially via AgentChain.
+ *
+ * Provide `build` (a factory) so each invocation gets a fresh agent with
+ * the parent's tracer and onLog wrapped to inject `parent_span_id` and
+ * `sub_agent_name` attributes — the Cloud trace explorer uses these to
+ * render the multi-agent run as a tree.
+ */
+export interface SubAgent {
+  /** Stable identifier used as the tool-call argument and span attribute. */
+  name: string;
+  /** Description shown to the parent LLM when it invokes the sub-agent. */
+  description: string;
+  /**
+   * Factory invoked once per sub-agent run. Receives a build context with
+   * a pre-wrapped tracer / onLog that tag child spans and logs with parent
+   * metadata. Use these directly when constructing the child ShoppingAgent.
+   */
+  build: (ctx: SubAgentBuildContext) => unknown;
+  /** Optional JSON Schema validated against the parent's `input` argument. */
+  inputSchema?: Record<string, unknown>;
+}
+
+export interface SubAgentBuildContext {
+  /** Wrapped tracer; child spans inherit `parent_span_id` + `sub_agent_name`. */
+  tracer?: AgentTracer;
+  /** Wrapped onLog; child log events inherit `sub_agent_name` in `data`. */
+  onLog?: (event: AgentLogEvent) => void;
+  /** Current depth in the sub-agent tree. 1 for direct children of the root. */
+  depth: number;
+}
+
+export interface ChainResultEntry {
+  subAgentName: string;
+  output: AgentResult;
+}
+
+export interface ChainContext {
+  /** Results of each step that has run so far, in order. */
+  results: ChainResultEntry[];
+  /** Free-form key/value scratch space for cross-step data. */
+  shared: Record<string, unknown>;
+}
+
+export interface AgentChainStep {
+  subAgent: SubAgent;
+  /**
+   * Derive the input for this step from prior step results. If omitted,
+   * the prior step's `answer` is used directly.
+   */
+  inputFrom?: (ctx: ChainContext, initialInput: string) => string;
 }
 
 // ─── Agent Types ───
@@ -404,6 +501,18 @@ export interface AgentOptions {
   pluginConfigs?: Record<string, Record<string, unknown>>;
   /** Enable AP2 (Agent Payments Protocol) — experimental, mandate-based payment flow */
   experimental_ap2?: boolean;
+  /** Persistent session storage — enables resume across process restarts. */
+  sessionStorage?: SessionStorage;
+  /** Session ID — if a snapshot exists for this ID, the agent resumes from it. */
+  sessionId?: string;
+  /** Owner / tenant id to attach to saved sessions. */
+  sessionCustomerId?: string;
+  /** Sub-agents the LLM can invoke via the built-in `invoke_sub_agent` tool. */
+  subAgents?: SubAgent[];
+  /** Maximum nested sub-agent depth. Default: 3. */
+  subAgentMaxDepth?: number;
+  /** Internal — current depth in a parent→child chain. Do not set manually. */
+  _subAgentDepth?: number;
 }
 
 export interface AgentStep {

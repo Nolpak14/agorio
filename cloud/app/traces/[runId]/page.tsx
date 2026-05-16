@@ -49,6 +49,8 @@ export default async function TraceDetailPage({ params }: PageProps) {
 
         <UsageCard run={run} />
 
+        <SubAgentsStrip spans={spans} />
+
         <Section title={`Spans (${spans.length})`}>
           {spans.length === 0 ? (
             <Empty>No spans captured for this run.</Empty>
@@ -115,7 +117,16 @@ function UsageCard({ run }: { run: typeof traceRuns.$inferSelect }) {
   );
 }
 
-function SpansTable({ spans }: { spans: Array<typeof traceSpans.$inferSelect> }) {
+type SpanRow = typeof traceSpans.$inferSelect;
+
+function effectiveDepth(span: SpanRow): number {
+  const attrs = (span.attributes ?? {}) as Record<string, unknown>;
+  if (typeof attrs.depth === 'number') return attrs.depth;
+  if (typeof attrs.sub_agent_name === 'string') return 1;
+  return 0;
+}
+
+function SpansTable({ spans }: { spans: SpanRow[] }) {
   return (
     <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] overflow-hidden">
       <table className="w-full text-sm">
@@ -127,22 +138,65 @@ function SpansTable({ spans }: { spans: Array<typeof traceSpans.$inferSelect> })
           </tr>
         </thead>
         <tbody>
-          {spans.map((s) => (
-            <tr key={s.id} className="border-b border-[var(--border)] last:border-b-0 align-top">
-              <td className="px-4 py-3 font-mono">{s.name}</td>
-              <td className="px-4 py-3 text-[var(--muted)]">
-                {s.attributes && Object.keys(s.attributes).length > 0 ? (
-                  <code className="font-mono text-xs">{JSON.stringify(s.attributes)}</code>
-                ) : (
-                  '—'
-                )}
-              </td>
-              <td className="px-4 py-3 text-right font-mono">{formatDurationMs(s.durationMs)}</td>
-            </tr>
-          ))}
+          {spans.map((s) => {
+            const depth = effectiveDepth(s);
+            const isWrapper = s.name === 'agent.sub_agent';
+            return (
+              <tr key={s.id} className="border-b border-[var(--border)] last:border-b-0 align-top">
+                <td className="px-4 py-3 font-mono">
+                  <span style={{ paddingLeft: `${depth * 1.25}rem` }} className="inline-block">
+                    {depth > 0 && <span className="text-[var(--muted)]">└─ </span>}
+                    {isWrapper ? (
+                      <span className="text-[var(--accent)] font-semibold">{s.name}</span>
+                    ) : (
+                      s.name
+                    )}
+                  </span>
+                </td>
+                <td className="px-4 py-3 text-[var(--muted)]">
+                  {s.attributes && Object.keys(s.attributes).length > 0 ? (
+                    <code className="font-mono text-xs">{JSON.stringify(s.attributes)}</code>
+                  ) : (
+                    '—'
+                  )}
+                </td>
+                <td className="px-4 py-3 text-right font-mono">{formatDurationMs(s.durationMs)}</td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>
+  );
+}
+
+function SubAgentsStrip({ spans }: { spans: SpanRow[] }) {
+  const wrappers = spans.filter(s => s.name === 'agent.sub_agent');
+  if (wrappers.length === 0) return null;
+
+  return (
+    <section>
+      <h2 className="text-sm uppercase tracking-wider text-[var(--muted)] mb-3">
+        Sub-agents ({wrappers.length})
+      </h2>
+      <div className="flex flex-wrap gap-2">
+        {wrappers.map((w) => {
+          const attrs = (w.attributes ?? {}) as Record<string, unknown>;
+          const name = typeof attrs.sub_agent_name === 'string' ? attrs.sub_agent_name : 'unnamed';
+          const depth = typeof attrs.depth === 'number' ? attrs.depth : 1;
+          return (
+            <span
+              key={w.id}
+              className="inline-flex items-center gap-2 rounded-md border border-[var(--border)] bg-[var(--code-bg)] px-3 py-1.5 font-mono text-xs"
+            >
+              <span className="text-[var(--accent)]">{name}</span>
+              <span className="text-[var(--muted)]">depth {depth}</span>
+              <span className="text-[var(--muted)]">{formatDurationMs(w.durationMs)}</span>
+            </span>
+          );
+        })}
+      </div>
+    </section>
   );
 }
 

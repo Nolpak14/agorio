@@ -45,6 +45,46 @@ That is a fully working agent that discovers a merchant via UCP, searches the ca
 
 ---
 
+## New in v0.7 — B2B Procurement
+
+Build procurement agents that comparison-shop merchants, pause for human approval above your threshold, attach a PO# to every cart, and stream the full audit trail to [Agorio Cloud](https://cloud.agorio.dev) — composed as a single `AgentChain` of sub-agents. ([Full demo](./examples/procurement) · [Landing](https://agorio.dev/procurement) · [v0.7 plan](./docs/v0.7-plan.md))
+
+```typescript
+import { AgentChain, ShoppingAgent, ClaudeAdapter, agorioCloud } from '@agorio/sdk';
+import { createProcurementPlugin } from '@agorio/plugin-procurement';
+import { createApprovalWorkflowPlugin } from '@agorio/plugin-approval-workflow';
+
+const cloud = agorioCloud({ apiKey: process.env.AGORIO_API_KEY! });
+
+const plugins = () => [
+  createApprovalWorkflowPlugin({ requireApprovalAbove: 1_000 }),
+  createProcurementPlugin({
+    vendors: VENDORS,
+    expenseCategories: ['office-supplies', 'it-equipment', 'furniture'],
+    requirePoOnCheckout: true,
+  }),
+];
+
+const chain = new AgentChain()
+  .add({ name: 'find-best-price', description: '...', build: (ctx) =>
+    new ShoppingAgent({ llm, tracer: ctx.tracer, onLog: ctx.onLog, plugins: plugins() }) })
+  .add({ name: 'request-approval', description: '...', build: (ctx) =>
+    new ShoppingAgent({ llm, tracer: ctx.tracer, onLog: ctx.onLog, plugins: plugins() }) })
+  .add({ name: 'checkout-and-track', description: '...', build: (ctx) =>
+    new ShoppingAgent({ llm, tracer: ctx.tracer, onLog: ctx.onLog, plugins: plugins() }) });
+
+await chain.run('Order 100 ergonomic chairs', { tracer: cloud.tracer, onLog: cloud.onLog });
+```
+
+v0.7 ships:
+
+- **`AgentChain` + sub-agent primitive** — compose specialized agents (find-price → checkout → track) with first-class Cloud span hierarchy
+- **`SessionStorage` interface** + `MemorySessionStorage`, `FileSessionStorage` in-tree, and a separate `@agorio/session-redis` package for production
+- **`@agorio/plugin-procurement`** — sixth governance plugin (PO# tracking, vendor lookup, expense categorization)
+- **HTTP retry + rate-limit primitives** (`createHttpClient`, `withRetry`, `TokenBucket`, `withRateLimit`) — drop into any adapter's `fetch:` option
+
+---
+
 ## Why Agorio
 
 The agentic commerce wave is here. Google AI Mode has 75M+ daily active users shopping through AI. Shopify is making 4.8M merchants discoverable via MCP. Stripe is enabling 1.5M merchants to accept agent payments with one line of code. Visa and Mastercard are enabling all US cardholders for agent transactions by holiday 2026.

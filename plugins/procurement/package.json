@@ -1,0 +1,46 @@
+{
+  "name": "@agorio/plugin-procurement",
+  "version": "0.1.0",
+  "description": "B2B procurement plugin for Agorio SDK — PO# tracking, vendor management, and expense categorization for AI shopping agents",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "prepublishOnly": "npm run build"
+  },
+  "peerDependencies": {
+    "@agorio/sdk": "^0.7.0"
+  },
+  "devDependencies": {
+    "@agorio/sdk": "file:../..",
+    "@types/node": "^22.9.0",
+    "typescript": "^5.6.3",
+    "vitest": "^4.0.17"
+  },
+  "keywords": [
+    "agorio",
+    "ucp",
+    "acp",
+    "ai-agent",
+    "shopping-agent",
+    "procurement",
+    "b2b",
+    "purchase-order",
+    "vendor",
+    "expense",
+    "enterprise"
+  ],
+  "author": "Agorio",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Nolpak14/agorio",
+    "directory": "plugins/procurement"
+  }
+}
