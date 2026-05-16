@@ -16,7 +16,7 @@ export default async function TracesListPage() {
   if (!ctx.customer) {
     return (
       <>
-        <CloudNavbar email={ctx.email} />
+        <CloudNavbar />
         <main className="max-w-2xl mx-auto px-6 py-16">
           <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-8 text-center">
             <h1 className="text-xl font-bold mb-3">No active subscription</h1>
@@ -45,7 +45,7 @@ export default async function TracesListPage() {
 
   return (
     <>
-      <CloudNavbar email={ctx.email} />
+      <CloudNavbar />
       <main className="max-w-6xl mx-auto px-6 py-12">
         <div className="flex items-end justify-between mb-8">
           <div>

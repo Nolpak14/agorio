@@ -2,8 +2,7 @@
 
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { UserButton } from '@neondatabase/neon-js/auth/react/ui';
-import { authClient } from '@/lib/auth-client';
+import { SignedIn, SignedOut, UserButton } from '@neondatabase/neon-js/auth/react/ui';
 
 const links = [
   { href: '/', label: 'Home' },
@@ -35,7 +34,37 @@ export default function Navbar() {
               {link.label}
             </Link>
           ))}
-          <UserButton />
+
+          <SignedOut>
+            <Link
+              href="/auth/sign-in"
+              className="text-sm text-[var(--muted)] hover:text-[var(--fg)] transition-colors"
+            >
+              Sign in
+            </Link>
+            <Link
+              href="/auth/sign-up"
+              className="px-3 py-1.5 rounded-lg text-sm text-black font-semibold transition-all hover:shadow-[0_0_20px_rgba(0,240,255,0.3)]"
+              style={{ background: 'linear-gradient(135deg, var(--accent), #00c8d4)' }}
+            >
+              Sign up
+            </Link>
+          </SignedOut>
+
+          <SignedIn>
+            <Link
+              href="/dashboard"
+              className={`text-sm transition-colors ${
+                pathname === '/dashboard'
+                  ? 'text-[var(--fg)]'
+                  : 'text-[var(--muted)] hover:text-[var(--fg)]'
+              }`}
+            >
+              Dashboard
+            </Link>
+            <UserButton />
+          </SignedIn>
+
           <a
             href="https://github.com/Nolpak14/agorio"
             className="text-[var(--muted)] hover:text-[var(--fg)] transition-colors"

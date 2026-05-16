@@ -31,7 +31,7 @@ export default async function TraceDetailPage({ params }: PageProps) {
 
   return (
     <>
-      <CloudNavbar email={ctx.email} />
+      <CloudNavbar />
       {run.status === 'in_progress' && <TraceAutoRefresh />}
       <main className="max-w-6xl mx-auto px-6 py-12 space-y-8">
         <div>

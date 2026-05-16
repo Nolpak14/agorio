@@ -13,7 +13,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
       navigate={router.push}
       replace={router.replace}
       Link={Link}
-      redirectTo="/dashboard"
+      redirectTo="/traces"
     >
       {children}
     </NeonAuthUIProvider>
