@@ -350,13 +350,14 @@ const agent = new ShoppingAgent({
 
 ## Reference implementations
 
-The 5 governance plugins in `plugins/` are MIT-licensed and fully documented:
+The 6 governance plugins in `plugins/` are MIT-licensed and fully documented:
 
 - [`plugins/spending-controls`](../plugins/spending-controls) — budget enforcement
-- [`plugins/approval-workflow`](../plugins/approval-workflow) — human-in-the-loop checkout gates
+- [`plugins/approval-workflow`](../plugins/approval-workflow) — human-in-the-loop checkout gates (implements `hydrate()` for v0.7 session resume)
 - [`plugins/audit-trail`](../plugins/audit-trail) — structured logging with redaction
 - [`plugins/agent-identity`](../plugins/agent-identity) — org identity attachment
 - [`plugins/policy-engine`](../plugins/policy-engine) — JSON-based rule evaluator
+- [`plugins/procurement`](../plugins/procurement) — B2B PO# tracking, vendor lookup, expense categorization (v0.7)
 
 Use them as copy-paste starting points for your own plugins.
 
