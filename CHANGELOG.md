@@ -7,6 +7,37 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [0.8.0] — Unreleased — Compliance & Hardening
+
+EU AI Act enforcement begins **2 August 2026**. This release ships the compliance artifacts and security hardening enterprise buyers require. See [`docs/v0.8-plan.md`](docs/v0.8-plan.md) and tracks [issue #38](https://github.com/Nolpak14/agorio/issues/38).
+
+### Added
+
+- **BigCommerce adapter** (`src/adapters/bigcommerce.ts`) — third real-merchant proof point with feature parity to Shopify/WooCommerce: catalog listing/search/get, cart creation, checkout completion, order status lookup. Auto-detects canonical `store-<hash>.mybigcommerce.com` domains. Exports `BigCommerceAdapter`, `BigCommerceAdapterError`, `BigCommerceAdapterOptions`, `isBigCommerceStore`.
+- **`AgentAttestation`** (`src/security/agent-attestation.ts`) — cryptographic proof that an outgoing request came from an authorized agent. Default scheme is HMAC-SHA256 over a canonical envelope (`agentId\ntimestamp\nnonce\nmethod\nurl\nsha256(body)`). `X-Agorio-Attestation` header. `wrapFetch()` automatically attaches the header to outgoing requests; `verifyAttestation()` validates inbound headers with a customer-supplied secret resolver. Pluggable `sign:` function for ed25519 / WebAuthn / KMS-backed schemes.
+- **`verifyMandateShape()`** AP2 receiver helper (`src/client/ap2-client.ts`) — structural sanity check on inbound `SignedMandate`s. Validates required fields, expiry, and (for `CartMandate`) line-item integrity. Does not verify cryptographic signatures — that's the merchant's responsibility.
+- **EU AI Act compliance export** — new `GET /api/compliance/export` endpoint on Cloud. CSV or JSON, date-range parameter (capped at 90 days), `runs/spans/logs` selectable, output stamped with `X-Agorio-Export-Spec: EU-AI-Act-Annex-IV-v1`. New `/compliance` dashboard page with a form for one-click downloads.
+- **Cloud audit log** — new `cloud_audit_log` table records every state-changing dashboard action (`api_key.create`, `api_key.revoke`, `compliance.export`). New `/audit-log` page surfaces the last 200 entries for the authenticated customer.
+- **RBAC schema** — new `orgs` + `org_members` tables (with `org_role` enum: `owner | admin | member | viewer`). Migration only in v0.8; full role-gating in v1.0.
+- **`docs/security.md`** — OWASP top-10 posture, dependency advisories, secret-scanning configuration, vulnerability disclosure policy.
+- **`docs/compliance.md`** — EU AI Act, GDPR, PCI DSS, SOC 2, HIPAA, ISO 27001 stances. Data-residency notes.
+- **Bench harness** (`bench/run.ts` + `bench/README.md`) — reproducible micro-benchmarks for agent latency and SDK overhead. Stub LLM keeps results provider-independent. Baseline numbers committed at `bench/baseline-v0.8.0.json`.
+
+### Changed
+
+- **AP2 client promoted to GA.** `Ap2Client` is no longer "experimental"; header comment and CHANGELOG language updated.
+- **`AgentOptions.experimental_ap2` deprecated** in favor of `AgentOptions.ap2`. Both flags are honored through v0.x; the old name is removed in v1.0 per the deprecation policy.
+
+### Tests
+
+- +20 BigCommerce adapter tests
+- +16 `AgentAttestation` tests (sign, parse, wrapFetch, verify happy + tampered + skew + malformed)
+- +5 `verifyMandateShape` tests on the AP2 client
+
+Total: **403** tests (387 root + 12 procurement + 4 session-redis).
+
+---
+
 ## [0.7.0] — Unreleased — B2B Procurement Vertical
 
 The headline B2B demo plus the primitives that make it non-trivial to clone. See [`docs/v0.7-plan.md`](docs/v0.7-plan.md) for the full plan and tracks [issue #37](https://github.com/Nolpak14/agorio/issues/37).

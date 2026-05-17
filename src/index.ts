@@ -34,7 +34,7 @@
 export { UcpClient, UcpDiscoveryError, UcpApiError } from './client/ucp-client.js';
 export { AcpClient, AcpApiError } from './client/acp-client.js';
 export { McpClient, McpError } from './client/mcp-client.js';
-export { Ap2Client, Ap2Error } from './client/ap2-client.js';
+export { Ap2Client, Ap2Error, verifyMandateShape } from './client/ap2-client.js';
 export type {
   Ap2ClientOptions,
   IntentMandate,
@@ -68,8 +68,25 @@ export type { ShopifyAdapterOptions } from './adapters/shopify.js';
 export { WooCommerceAdapter, WooCommerceAdapterError, isWooCommerceStore } from './adapters/woocommerce.js';
 export type { WooCommerceAdapterOptions } from './adapters/woocommerce.js';
 
+export { BigCommerceAdapter, BigCommerceAdapterError, isBigCommerceStore } from './adapters/bigcommerce.js';
+export type { BigCommerceAdapterOptions } from './adapters/bigcommerce.js';
+
 // Webhook
 export { WebhookServer } from './webhook/webhook-server.js';
+
+// Agent identity attestation (v0.8)
+export {
+  AgentAttestation,
+  parseAttestation,
+  verifyAttestation,
+} from './security/agent-attestation.js';
+export type {
+  AttestationOptions,
+  SignRequestInput,
+  ParsedAttestation,
+  VerifyOptions,
+  VerifyResult,
+} from './security/agent-attestation.js';
 
 // Persistent sessions
 export { MemorySessionStorage } from './session/memory-storage.js';

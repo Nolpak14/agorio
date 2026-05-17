@@ -16,6 +16,9 @@ coverage/
 .env.local
 .env.development
 .env.production
+# …but DO commit .env.example template files — they ship no secrets.
+!.env.example
+!**/.env.example
 
 # OS files
 .DS_Store
@@ -35,8 +38,16 @@ Desktop.ini
 # Claude Code — entire directory is internal tooling
 .claude/
 
-# Internal docs — strategy, roadmap, plans, competitive intel
-docs/
+# Internal docs only — strategy, marketing collateral, competitive intel, weekly
+# planning. Everything else under docs/ (security.md, compliance.md, release
+# plans, ADRs, integration guides) is public — README and CHANGELOG link to
+# those files from GitHub.
+docs/competition/
+docs/marketing/
+docs/strategy/
+docs/weekly/
+# monetization.md embeds live Stripe IDs; keep it internal.
+docs/monetization.md
 
 # CLAUDE.md — project context file (local only, contains internal details)
 CLAUDE.md

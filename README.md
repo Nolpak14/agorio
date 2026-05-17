@@ -45,6 +45,19 @@ That is a fully working agent that discovers a merchant via UCP, searches the ca
 
 ---
 
+## New in v0.8 — Compliance & Hardening
+
+EU AI Act enforcement begins **2 August 2026**. v0.8 ships the artifacts and primitives enterprise buyers want — without dropping any v0.7 capability. ([v0.8 plan](./docs/v0.8-plan.md) · [security posture](./docs/security.md) · [compliance posture](./docs/compliance.md))
+
+- 🛒 **BigCommerce adapter** — third real-merchant proof point with feature parity to Shopify + WooCommerce.
+- 🔐 **Agent identity attestation** — HMAC-signed `X-Agorio-Attestation` header on outgoing requests. Merchants verify with a shared secret. `AgentAttestation.wrapFetch()` is a one-liner.
+- 📑 **EU AI Act compliance export** — `GET /api/compliance/export?from=…&to=…&format=csv` emits Annex IV-aligned records direct from Cloud.
+- 📜 **Audit log** — every state-changing dashboard action lands in a tenant-scoped append-only table. Visible at `cloud.agorio.dev/audit-log`.
+- ✅ **AP2 GA** — `experimental_ap2` deprecated in favor of `ap2`. New `verifyMandateShape()` helper for receivers.
+- 🛡️ **`docs/security.md` + `docs/compliance.md`** — OWASP top-10 posture, dependency advisories, vuln disclosure, GDPR / PCI / SOC 2 / ISO 27001 stances.
+
+---
+
 ## New in v0.7 — B2B Procurement
 
 Build procurement agents that comparison-shop merchants, pause for human approval above your threshold, attach a PO# to every cart, and stream the full audit trail to [Agorio Cloud](https://cloud.agorio.dev) — composed as a single `AgentChain` of sub-agents. ([Full demo](./examples/procurement) · [Landing](https://agorio.dev/procurement) · [v0.7 plan](./docs/v0.7-plan.md))

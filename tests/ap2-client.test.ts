@@ -6,6 +6,7 @@ import { describe, it, expect, vi } from 'vitest';
 import {
   Ap2Client,
   Ap2Error,
+  verifyMandateShape,
   type IntentMandate,
   type CartMandate,
   type CartLineItem,
@@ -236,5 +237,51 @@ describe('Ap2Error', () => {
     expect(err.name).toBe('Ap2Error');
     expect(err.message).toBe('mandate expired');
     expect(err).toBeInstanceOf(Error);
+  });
+});
+
+describe('verifyMandateShape', () => {
+  function build() {
+    const client = makeClient();
+    const intent = client.createIntentMandate({ amount: '99.99', currency: 'USD' });
+    const cart = client.attachCart(intent, sampleLineItems);
+    return client.sign(cart);
+  }
+
+  it('accepts a freshly-signed CartMandate', async () => {
+    const signed = await build();
+    // Re-sync the declared amount with the line-items so the integrity check passes
+    signed.mandate.amount = signed.mandate.cartTotal;
+    expect(verifyMandateShape(signed)).toEqual({ ok: true });
+  });
+
+  it('rejects when signature is missing', async () => {
+    const signed = await build();
+    delete (signed as Record<string, unknown>).signature;
+    const result = verifyMandateShape(signed);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.reason).toMatch(/signature/);
+  });
+
+  it('rejects when the mandate has expired', async () => {
+    const signed = await build();
+    signed.mandate.expiresAt = Date.now() - 1000;
+    const result = verifyMandateShape(signed);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.reason).toMatch(/expired/);
+  });
+
+  it('rejects when cart total does not match line items', async () => {
+    const signed = await build();
+    signed.mandate.cartTotal = '999.00';
+    const result = verifyMandateShape(signed);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.reason).toMatch(/cartTotal/);
+  });
+
+  it('rejects non-object inputs', () => {
+    expect(verifyMandateShape(null).ok).toBe(false);
+    expect(verifyMandateShape('string').ok).toBe(false);
+    expect(verifyMandateShape(undefined).ok).toBe(false);
   });
 });

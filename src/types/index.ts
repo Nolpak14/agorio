@@ -499,7 +499,16 @@ export interface AgentOptions {
   onComplete?: (result: AgentResult) => void | Promise<void>;
   /** Per-plugin configuration, keyed by plugin name */
   pluginConfigs?: Record<string, Record<string, unknown>>;
-  /** Enable AP2 (Agent Payments Protocol) — experimental, mandate-based payment flow */
+  /**
+   * Enable AP2 (Agent Payments Protocol) mandate-based payment flow.
+   * Promoted to GA in v0.8 — kept as an opt-in because AP2 requires a signer
+   * and a payment endpoint that the SDK cannot infer from merchant discovery.
+   */
+  ap2?: boolean;
+  /**
+   * @deprecated Use `ap2` instead. The flag was renamed in v0.8 when AP2 reached GA;
+   * `experimental_ap2` is honored for one major-version window for backwards compatibility.
+   */
   experimental_ap2?: boolean;
   /** Persistent session storage — enables resume across process restarts. */
   sessionStorage?: SessionStorage;

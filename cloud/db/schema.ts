@@ -141,3 +141,65 @@ export const traceLogs = pgTable(
 
 export type TraceLog    = typeof traceLogs.$inferSelect;
 export type NewTraceLog = typeof traceLogs.$inferInsert;
+
+// ─── Agorio Cloud — RBAC + audit (v1.0) ──────────────────────────────────
+// Organizations let one billing customer host multiple members with roles.
+// On v0.8/v1.0 every existing customer is migrated 1:1 to a default org
+// where they hold `owner`. New invites are added as `org_members` rows.
+
+export const orgRole = pgEnum('org_role', ['owner', 'admin', 'member', 'viewer']);
+
+export const orgs = pgTable('orgs', {
+  id:          serial('id').primaryKey(),
+  customerId:  integer('customer_id').notNull().references(() => customers.id, { onDelete: 'cascade' }),
+  name:        text('name').notNull(),
+  createdAt:   timestamp('created_at').defaultNow().notNull(),
+});
+
+export type Org    = typeof orgs.$inferSelect;
+export type NewOrg = typeof orgs.$inferInsert;
+
+export const orgMembers = pgTable(
+  'org_members',
+  {
+    id:        serial('id').primaryKey(),
+    orgId:     integer('org_id').notNull().references(() => orgs.id, { onDelete: 'cascade' }),
+    email:     text('email').notNull(),
+    role:      orgRole('role').notNull().default('member'),
+    invitedAt: timestamp('invited_at').defaultNow().notNull(),
+    acceptedAt: timestamp('accepted_at'),
+  },
+  (t) => ({
+    byOrg:   index('org_members_org_idx').on(t.orgId),
+    byEmail: index('org_members_email_idx').on(t.email),
+  })
+);
+
+export type OrgMember    = typeof orgMembers.$inferSelect;
+export type NewOrgMember = typeof orgMembers.$inferInsert;
+
+// ─── Agorio Cloud — audit log ────────────────────────────────────────────
+// Records every state-changing dashboard action (create/revoke api key,
+// invite member, change role, export compliance file). Append-only; entries
+// are never updated or deleted by application code.
+
+export const cloudAuditLog = pgTable(
+  'cloud_audit_log',
+  {
+    id:         serial('id').primaryKey(),
+    customerId: integer('customer_id').notNull().references(() => customers.id, { onDelete: 'cascade' }),
+    actorEmail: text('actor_email').notNull(),
+    action:     text('action').notNull(),         // e.g. 'api_key.create', 'compliance.export'
+    target:     text('target'),                   // optional opaque target identifier
+    metadata:   jsonb('metadata').$type<Record<string, unknown>>(),
+    ipAddress:  text('ip_address'),
+    userAgent:  text('user_agent'),
+    createdAt:  timestamp('created_at').defaultNow().notNull(),
+  },
+  (t) => ({
+    byCustomerTime: index('cloud_audit_customer_time_idx').on(t.customerId, t.createdAt.desc()),
+  })
+);
+
+export type CloudAuditEntry    = typeof cloudAuditLog.$inferSelect;
+export type NewCloudAuditEntry = typeof cloudAuditLog.$inferInsert;

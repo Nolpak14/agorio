@@ -1,0 +1,73 @@
+# Agorio self-hosted stack (v0.8+).
+#
+# Brings up:
+#   - postgres     (durable trace + customer data — equivalent to Neon in hosted Cloud)
+#   - cloud        (the cloud.agorio.dev Next.js app, served on :3001)
+#   - migrate      (one-shot drizzle-kit push against the freshly-started postgres)
+#
+# Auth: the hosted Cloud relies on Neon Auth. Self-hosted deployments need to
+# supply a Neon Auth project of their own OR run in an embedded SSO mode (see
+# docs/self-hosted.md — that's a v1.0 follow-up).
+#
+# Usage:
+#   docker compose -f docker/docker-compose.yml --env-file docker/.env up -d
+#
+# Then point your browser at http://localhost:3001
+#
+# Note: this compose file uses bind mounts only for migrations and config.
+# Production deployments should switch to a managed postgres + persistent
+# volume strategy.
+
+version: '3.9'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-agorio}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-agorio-dev-only}
+      POSTGRES_DB: ${POSTGRES_DB:-agorio}
+    ports:
+      - '5432:5432'
+    volumes:
+      - agorio-pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-agorio} -d ${POSTGRES_DB:-agorio}']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  migrate:
+    build:
+      context: ..
+      dockerfile: docker/cloud.Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-agorio}:${POSTGRES_PASSWORD:-agorio-dev-only}@postgres:5432/${POSTGRES_DB:-agorio}
+    command: ['npx', 'drizzle-kit', 'push']
+    restart: on-failure
+    # Run once at startup, then exit — compose treats exit 0 as healthy.
+
+  cloud:
+    build:
+      context: ..
+      dockerfile: docker/cloud.Dockerfile
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgres://${POSTGRES_USER:-agorio}:${POSTGRES_PASSWORD:-agorio-dev-only}@postgres:5432/${POSTGRES_DB:-agorio}
+      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3001}
+      NEON_AUTH_PROJECT_ID: ${NEON_AUTH_PROJECT_ID:-}
+      NEON_AUTH_API_KEY: ${NEON_AUTH_API_KEY:-}
+      NEON_AUTH_JWKS_URL: ${NEON_AUTH_JWKS_URL:-}
+    ports:
+      - '3001:3000'
+    restart: unless-stopped
+
+volumes:
+  agorio-pg:

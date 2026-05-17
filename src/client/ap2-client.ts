@@ -1,19 +1,22 @@
 /**
- * AP2 Client — Agent Payments Protocol (FIDO Alliance, experimental)
+ * AP2 Client — Agent Payments Protocol (FIDO Alliance)
  *
- * Implements the AP2 mandate-based payment flow:
+ * GA in agorio v0.8. Implements the full AP2 mandate lifecycle:
  *   IntentMandate  →  CartMandate  →  SignedMandate  →  payment result
  *
  * Real deployments must supply a `sign` function backed by a FIDO2/WebAuthn
- * authenticator. The default signer is a deterministic mock (prefix: "mock_sig_")
- * suitable for testing and CI only.
+ * authenticator (ES256 / EdDSA). The default signer is a deterministic mock
+ * (prefix: "mock_sig_") suitable for testing and CI only.
+ *
+ * Receivers (merchants / payment gateways) can use `verifyMandateShape` to
+ * sanity-check incoming SignedMandates before handing them to a real verifier.
  *
  * Usage:
  *   const client = new Ap2Client({ merchantId: 'merchant_xyz' });
- *   const intent = client.createIntentMandate({ amount: '49.99', currency: 'USD', ... });
- *   const cart   = await client.attachCart(intent, lineItems);
+ *   const intent = client.createIntentMandate({ amount: '49.99', currency: 'USD' });
+ *   const cart   = client.attachCart(intent, lineItems);
  *   const signed = await client.sign(cart);
- *   const result = await client.submitPayment(signed);
+ *   const result = await client.submitPayment(signed, paymentUrl);
  */
 
 // ─── AP2 types ───
@@ -249,6 +252,64 @@ export class Ap2Client {
     const signed = await this.sign(cart);
     return this.submitPayment(signed, params.paymentEndpoint);
   }
+}
+
+// ─── Receiver-side helpers ───
+
+/**
+ * Shape-validate a SignedMandate received from an external agent.
+ *
+ * This is a structural sanity check — it confirms required fields exist,
+ * the mandate hasn't expired, and (for CartMandate) line-item totals match
+ * the declared amount. It does **not** verify the signature; pair this with
+ * a real signature verifier (WebAuthn assertion, JWS verify, etc.) keyed
+ * off `signed.keyId` and `signed.algorithm`.
+ *
+ * Returns `{ ok: true }` on success, `{ ok: false, reason }` on failure.
+ */
+export function verifyMandateShape(
+  signed: unknown,
+  options: { now?: number } = {}
+): { ok: true } | { ok: false; reason: string } {
+  if (!signed || typeof signed !== 'object') {
+    return { ok: false, reason: 'signed mandate is not an object' };
+  }
+  const s = signed as Record<string, unknown>;
+  if (!s.signature || typeof s.signature !== 'string') {
+    return { ok: false, reason: 'missing signature' };
+  }
+  if (!s.algorithm || typeof s.algorithm !== 'string') {
+    return { ok: false, reason: 'missing algorithm' };
+  }
+  if (!s.keyId || typeof s.keyId !== 'string') {
+    return { ok: false, reason: 'missing keyId' };
+  }
+  const mandate = s.mandate as Record<string, unknown> | undefined;
+  if (!mandate || typeof mandate !== 'object') {
+    return { ok: false, reason: 'missing mandate' };
+  }
+  for (const field of ['mandateId', 'merchantId', 'amount', 'currency', 'expiresAt', 'createdAt']) {
+    if (mandate[field] === undefined || mandate[field] === null) {
+      return { ok: false, reason: `mandate.${field} is missing` };
+    }
+  }
+  const expiresAt = Number(mandate.expiresAt);
+  const now = options.now ?? Date.now();
+  if (!Number.isFinite(expiresAt) || expiresAt < now) {
+    return { ok: false, reason: 'mandate expired' };
+  }
+  // CartMandate-specific check: cartTotal must match declared amount
+  if (Array.isArray(mandate.lineItems)) {
+    const computed = (mandate.lineItems as CartLineItem[])
+      .reduce((sum, item) => sum + parseFloat(item.unitPrice) * item.quantity, 0)
+      .toFixed(2);
+    const amount = parseFloat(String(mandate.amount)).toFixed(2);
+    const cartTotal = parseFloat(String(mandate.cartTotal ?? amount)).toFixed(2);
+    if (computed !== cartTotal) {
+      return { ok: false, reason: `cartTotal ${cartTotal} does not match line items ${computed}` };
+    }
+  }
+  return { ok: true };
 }
 
 // ─── Error class ───

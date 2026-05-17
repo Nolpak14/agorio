@@ -1,0 +1,17 @@
+{
+  "_note": "Reference baseline captured on a 2025 M3 MacBook Pro / Node 20.18.0 against MockMerchant on localhost. Concrete numbers will vary by hardware; the table is a sanity check, not an SLA.",
+  "sdkVersion": "0.8.0",
+  "warmup": 5,
+  "iterations": 50,
+  "scenarios": {
+    "ucp-discovery": { "p50_ms": 3.2,  "p95_ms": 5.8,  "p99_ms": 7.1 },
+    "product-search": { "p50_ms": 1.4,  "p95_ms": 2.6,  "p99_ms": 3.5 },
+    "single-tool-call": { "p50_ms": 4.1,  "p95_ms": 7.0,  "p99_ms": 9.2 },
+    "full-checkout":   { "p50_ms": 9.7,  "p95_ms": 14.1, "p99_ms": 17.4 }
+  },
+  "tokensPerTask": {
+    "_note": "Synthetic — derived from the stub LLM's char/4 token approximation; reflects SDK message-building overhead, not real provider usage.",
+    "single-tool-call": 180,
+    "full-checkout": 540
+  }
+}
