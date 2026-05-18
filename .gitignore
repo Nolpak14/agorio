@@ -61,3 +61,4 @@ tmp/
 temp/
 *.tmp
 dkim.txt
+.vercel

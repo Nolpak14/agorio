@@ -1,6 +1,6 @@
 # Agorio SDK Roadmap
 
-> **Last updated:** 2026-05-16. This roadmap supersedes earlier versions. The pivot from "paid plugins" to "open core + Agorio Cloud" is described in [docs/monetization.md](monetization.md).
+> **Last updated:** 2026-05-18 (v0.9.0 shipped). This roadmap supersedes earlier versions. The pivot from "paid plugins" to "open core + Agorio Cloud" is described in [docs/monetization.md](monetization.md). The road to v1.0.0 GA is tracked in [docs/v1.0-plan.md](v1.0-plan.md) and umbrella issue [#61](https://github.com/Nolpak14/agorio/issues/61).
 
 ## Strategic positioning
 
@@ -101,31 +101,7 @@ Detailed plan + post-launch patches: [docs/v0.6-plan.md](v0.6-plan.md). User-fac
 
 ---
 
-## Planned
-
-### v0.6.1 — Cloud feature completion + post-launch fixes (Target: Q3 2026, ~3 weeks)
-
-**Goal:** Close out the v0.6 issue's remaining sub-tasks now that the ingestion pipeline and dashboard exist, plus address the issues that surfaced during the v0.6 launch (documented in `docs/v0.6-plan.md` Post-launch patches).
-
-**Originally deferred from v0.6:**
-
-- [ ] **Hosted approval-workflow webhook receiver** — click-to-approve UI for the `approval-workflow` plugin. Requires a new SDK primitive for agent-side approval polling/awaiting (current `approval_workflow` plugin can POST out but the agent can't receive push-backs).
-- [ ] **Hosted mock merchants** — wrap `MockMerchant` / `MockAcpMerchant` / `MockMcpMerchant` behind a `cloud.agorio.dev/mock/<tenant-id>/...` route, gated by the same API-key lookup.
-- [ ] **Multi-agent fleet view** — org-level rollup with spend / conversion / error rate aggregates. Requires an `orgs` table and a customer→org join.
-- [ ] **Stale-run sweeper** — mark `trace_runs` rows still `in_progress` after >1 h as `failure`. Cron job or Vercel scheduled function.
-- [ ] **Shared workspace package** — promote `db/` and `lib/auth-server.ts` from the duplicated state to a single source of truth.
-
-**Surfaced during v0.6 launch (need addressing):**
-
-- [ ] **Customer-row-on-first-auth.** Today a `customers` row only exists after Stripe webhook fires on `checkout.session.completed`. Users who sign up via Neon Auth but haven't subscribed see a dead-end "No active subscription" empty state on Cloud. Auto-create a `plan: 'free'` row on first auth so users can explore Cloud (read-only or with a low free quota) before deciding to subscribe.
-- [ ] **Stripe webhook upsert-on-email.** The webhook currently INSERTs blindly — if a customer row already exists for the email (e.g., from a manual comp or a re-subscription after cancellation), this creates a duplicate row that the dashboard's `WHERE email = ? LIMIT 1` lookup picks one of at random. Switch to UPSERT keyed on email.
-- [ ] **Email uniqueness constraint on customers table.** Currently only `stripe_customer_id` and `stripe_subscription_id` are unique. Adding a UNIQUE constraint on `email` would prevent the duplicate-row class of bug entirely. Requires a migration + handling for the (rare) edge case where someone changes their Stripe email.
-- [ ] **Retire `/dashboard#api-keys` on site.** Cloud is now the canonical surface; site's section is kept working for back-compat but should eventually be either removed or replaced with a redirect to Cloud.
-- [ ] **Better post-Stripe success page on cloud.** Currently new subscribers see a dead-end "No active subscription" if they land on cloud before the webhook has fired (race condition: success page redirects immediately, webhook can take 1–5s). Add a loading state that polls for the customer row.
-
-### v0.7.0 — B2B Procurement Vertical (Target: Q3/Q4 2026, ~6 weeks) — IN PROGRESS
-
-**Goal:** Ship the killer enterprise reference agent that demonstrates Agorio's value to procurement teams. Detailed plan: [docs/v0.7-plan.md](v0.7-plan.md).
+### v0.7.0 — B2B Procurement Vertical (May 2026)
 
 - [x] **HTTP retry + rate-limit primitives** — `createHttpClient`, `withRetry`, `TokenBucket`, `withRateLimit`. Drop into any adapter's `fetch:` option.
 - [x] **Agent composition primitives** — `runSubAgent` + `AgentChain`, with `parent_span_id` injection so Cloud renders multi-agent runs as a tree.
@@ -134,24 +110,71 @@ Detailed plan + post-launch patches: [docs/v0.6-plan.md](v0.6-plan.md). User-fac
 - [x] **Procurement reference agent** in `examples/procurement/` with CI smoke test against three MockMerchants. WooCommerce docker-compose + Shopify dev store setup documented for full-demo mode.
 - [x] **Cloud trace explorer hierarchy** — sub-agent strip + indented spans table.
 - [x] **Marketing surface** — `agorio.dev/procurement` landing page, README "v0.7" section.
-- [ ] **Design partner** — outbound to 5–10 mid-market procurement teams; target 1 signed by week 4 (out-of-band marketing work, tracked separately).
-- [ ] **Release `@agorio/sdk@0.7.0`** + `@agorio/plugin-procurement@0.1.0` + `@agorio/session-redis@0.1.0` to npm.
+- 362 tests. Detailed plan: [docs/v0.7-plan.md](v0.7-plan.md).
 
-### v0.8.0 — Compliance & Hardening (Target: Q4 2026, ~4 weeks)
+### v0.8.0 — Compliance & Hardening (May 2026)
 
-- [ ] **EU AI Act compliance export module** — PDF/CSV audit-log exports
-- [ ] **BotID / agent identity attestation** — integrate Vercel BotID or equivalent
-- [ ] **Security audit** — OWASP review, dependency audit, secret scanning
-- [ ] **Penetration test** on Cloud dashboard
-- [ ] **BigCommerce adapter**
+- [x] **BigCommerce adapter** (`src/adapters/bigcommerce.ts`) — third real-merchant proof point with feature parity to Shopify + WooCommerce.
+- [x] **Agent identity attestation** — `AgentAttestation` HMAC-signed `X-Agorio-Attestation` header, `verifyAttestation` receiver helper, pluggable `sign:` for ed25519 / WebAuthn / KMS schemes.
+- [x] **AP2 GA** — promoted from experimental; `experimental_ap2` deprecated. `verifyMandateShape()` receiver helper.
+- [x] **EU AI Act compliance export** — `GET /api/compliance/export?from=…&to=…&format=csv` with Annex IV-aligned records + `/compliance` dashboard page.
+- [x] **Cloud audit log** — `cloud_audit_log` table + `/audit-log` viewer.
+- [x] **RBAC schema** — `orgs` + `org_members` tables landed (schema only; enforcement deferred to v0.9).
+- [x] **Bench harness** — `bench/run.ts` + `bench/baseline-v0.8.0.json`.
+- [x] **Self-hosted Docker bundle** — `docker/docker-compose.yml` + `docker/cloud.Dockerfile`.
+- [x] **Adapter SDK + community-plugin docs** — `docs/adapter-sdk.md`, `docs/community-plugins.md`, `docs/plugins-registry.md`, `docs/adapters-registry.md`, `docs/certification.md`.
+- [x] **ADRs 0001–0007** — versioning policy (`docs/semver.md`), migration guide (`docs/migration-0.x-to-1.0.md`).
+- 403 tests. Detailed plan: [docs/v0.8-plan.md](v0.8-plan.md).
 
-### v1.0.0 — Production GA (Target: H1 2027)
+### v0.9.0 — SDK GA Polish (May 18, 2026)
 
-- [ ] Stability + semver guarantees
-- [ ] SLA on Agorio Cloud
-- [ ] Enterprise SSO (Okta, Azure AD) + RBAC on dashboard
-- [ ] Full UCP + ACP + AP2 + MCP protocol coverage
-- [ ] Comprehensive docs site (replaces landing page)
+First release of the v1.0.0 GA program. Locks the public API surface ahead of the 90-day no-breaking-changes clock at v1.0.0-rc.1.
+
+- [x] **Removed `AgentOptions.experimental_ap2`** — the only breaking change in the v1.0 program. One-line migration in [docs/migration-0.x-to-1.0.md](migration-0.x-to-1.0.md).
+- [x] **MCP spec methods on `McpClient`** — `initialize`, `notifyInitialized`, `listTools`/`callTool`, `listResources`/`readResource`, `listPrompts`/`getPrompt`. Talk to any standard MCP server (GitHub MCP, Filesystem MCP, custom internal); generic `call()` stays as the escape hatch.
+- [x] **UCP introspection helpers** — `getSigningKeys()` / `getSigningKey(kid)`, `getPaymentHandler(id)`, `getA2aEndpoint()`, `getExtensionsOf(parentName)`, `getCapabilityLineage(name)`.
+- [x] **ACP idempotency keys** — optional `idempotencyKey` param on all write methods sends `Idempotency-Key` header. Strongly recommended on `completeCheckout`.
+- [x] **AP2 `RefundMandate`** — new mandate type with `originalMandateId` + `reason`. `Ap2Client.createRefundMandate()`. Extended `verifyMandateShape`.
+- [x] **Cloud RBAC enforcement** — `cloud/lib/rbac.ts` with `requireRole(minimum)` gates api-keys (admin+), traces / audit-log (viewer+); lazy-seeds the 1:1 customer→org + owner-membership pair.
+- [x] **Cloud team admin UI** — `/team` with invite / change-role / remove, Resend invite emails. Owner role immutable from UI, admins can't remove themselves, only owners can grant admin. Every action audit-logged.
+- 418 tests. Published: [@agorio/sdk@0.9.0](https://www.npmjs.com/package/@agorio/sdk/v/0.9.0).
+
+---
+
+## Planned
+
+### v0.10.0 — Cloud Enterprise & Docs (Target: H2 2026)
+
+Ships everything required for v1.0.0-rc.1 to start the 90-day stability + uptime clocks. Tracked as umbrella issue [#61](https://github.com/Nolpak14/agorio/issues/61).
+
+**SDK protocol coverage** (deferred from v0.9 — need spec alignment before locking shape)
+- [ ] Full ACP coverage — refunds, fulfillment, orders, webhook events ([#51](https://github.com/Nolpak14/agorio/issues/51))
+- [ ] Full AP2 coverage — x402 stablecoin, `DelegatedMandate`, JWK signature verification ([#52](https://github.com/Nolpak14/agorio/issues/52))
+
+**Cloud enterprise**
+- [ ] Enterprise SSO via Neon Auth connectors (Okta, Azure AD, Google Workspace) ([#54](https://github.com/Nolpak14/agorio/issues/54))
+- [ ] Helm chart for self-hosted Cloud ([#55](https://github.com/Nolpak14/agorio/issues/55))
+- [ ] Per-trace usage-based billing (Stripe metered) ([#56](https://github.com/Nolpak14/agorio/issues/56))
+- [ ] Customer portal improvements — invoices, usage history, downgrade flow ([#57](https://github.com/Nolpak14/agorio/issues/57))
+
+**Operations**
+- [ ] Public SLA + status page (BetterStack at `status.agorio.dev`) ([#58](https://github.com/Nolpak14/agorio/issues/58))
+
+**Documentation**
+- [ ] Nextra docs site at agorio.dev/docs (zero-TODO acceptance gate) ([#59](https://github.com/Nolpak14/agorio/issues/59))
+
+**Ecosystem**
+- [ ] Adapter template repo + first community plugin + first non-first-party certified storefront ([#60](https://github.com/Nolpak14/agorio/issues/60))
+
+### v1.0.0-rc.1 → v1.0.0 — Production GA (Target: H1 2027)
+
+After v0.10 ships, cut `v1.0.0-rc.1` to start the four clock-based acceptance criteria. Only patch fixes between rc and GA. Tag `v1.0.0` when all four are green.
+
+- [ ] **90 days no breaking changes** — enforced by branch protection on `main` after rc.1
+- [ ] **>99.9% Cloud uptime over 90 days** — measured by the status page above
+- [ ] **≥3 enterprise customers running production agents with SSO** — sales / CS milestone
+- [ ] **Docs site has full guides + API reference, no "TODO" sections** — CI grep gate
+- [ ] **Re-run bench on M3 reference hardware** at rc.1 — commit `bench/baseline-v1.0.0.json` ([#53](https://github.com/Nolpak14/agorio/issues/53))
 
 ---
 

@@ -45,6 +45,19 @@ That is a fully working agent that discovers a merchant via UCP, searches the ca
 
 ---
 
+## New in v0.9 — SDK GA Polish
+
+First release of the v1.0.0 GA program — locks the public API surface so the 90-day no-breaking-changes clock can start cleanly at v1.0.0-rc.1. ([v1.0 plan](./docs/v1.0-plan.md) · [migration guide](./docs/migration-0.x-to-1.0.md) · [v0.9 commits](https://github.com/Nolpak14/agorio/commits/main))
+
+- 🧰 **MCP spec methods on `McpClient`** — `initialize`, `notifyInitialized`, `listTools` / `callTool`, `listResources` / `readResource`, `listPrompts` / `getPrompt`. Talk to any standard MCP server (GitHub MCP, Filesystem MCP, custom internal) without going through UCP discovery. Generic `call()` stays as the escape hatch.
+- 🔍 **UCP introspection** — `getSigningKey(kid)`, `getPaymentHandler(id)` (full config + schemas), `getA2aEndpoint()`, `getExtensionsOf(parentName)`, `getCapabilityLineage(name)`. The profile metadata is finally addressable.
+- 🔁 **ACP idempotency keys** — optional `idempotencyKey` param on `createCheckout` / `updateCheckout` / `completeCheckout` / `cancelCheckout`. Strongly recommended on `completeCheckout` since retries charge the buyer.
+- 💸 **AP2 `RefundMandate`** — new mandate type modeled symmetrically on `IntentMandate`, with `originalMandateId` and optional `reason`. `Ap2Client.createRefundMandate()` issues one; existing `sign()` / `submitPayment()` handles the rest.
+- 🛡️ **Cloud RBAC enforcement** — schema landed in v0.8; v0.9 wires it up. `requireRole(minimum)` gates server actions; team admin UI at `/team` (invite / change-role / remove) with Resend invite emails. Owner role immutable; only owners can grant admin; every action audit-logged.
+- ⚠️ **Breaking:** `AgentOptions.experimental_ap2` removed (deprecated in v0.8). [One-line migration](./docs/migration-0.x-to-1.0.md). 418 tests passing.
+
+---
+
 ## New in v0.8 — Compliance & Hardening
 
 EU AI Act enforcement begins **2 August 2026**. v0.8 ships the artifacts and primitives enterprise buyers want — without dropping any v0.7 capability. ([v0.8 plan](./docs/v0.8-plan.md) · [security posture](./docs/security.md) · [compliance posture](./docs/compliance.md))
@@ -53,7 +66,7 @@ EU AI Act enforcement begins **2 August 2026**. v0.8 ships the artifacts and pri
 - 🔐 **Agent identity attestation** — HMAC-signed `X-Agorio-Attestation` header on outgoing requests. Merchants verify with a shared secret. `AgentAttestation.wrapFetch()` is a one-liner.
 - 📑 **EU AI Act compliance export** — `GET /api/compliance/export?from=…&to=…&format=csv` emits Annex IV-aligned records direct from Cloud.
 - 📜 **Audit log** — every state-changing dashboard action lands in a tenant-scoped append-only table. Visible at `cloud.agorio.dev/audit-log`.
-- ✅ **AP2 GA** — `experimental_ap2` deprecated in favor of `ap2`. New `verifyMandateShape()` helper for receivers.
+- ✅ **AP2 GA** — `experimental_ap2` deprecated in favor of `ap2` (removed in v0.9). New `verifyMandateShape()` helper for receivers.
 - 🛡️ **`docs/security.md` + `docs/compliance.md`** — OWASP top-10 posture, dependency advisories, vuln disclosure, GDPR / PCI / SOC 2 / ISO 27001 stances.
 
 ---
