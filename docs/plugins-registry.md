@@ -1,7 +1,7 @@
 # Plugins registry
 
 Curated list of community-maintained plugins for `@agorio/sdk`. Open a PR adding your plugin
-following the [community plugins program](./community-plugins.md) rules.
+following the [community plugins program](./guides/community-plugins.md) rules.
 
 ## Certified
 

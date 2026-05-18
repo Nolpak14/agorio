@@ -47,20 +47,20 @@ That is a fully working agent that discovers a merchant via UCP, searches the ca
 
 ## New in v0.9 — SDK GA Polish
 
-First release of the v1.0.0 GA program — locks the public API surface so the 90-day no-breaking-changes clock can start cleanly at v1.0.0-rc.1. ([v1.0 plan](./docs/v1.0-plan.md) · [migration guide](./docs/migration-0.x-to-1.0.md) · [v0.9 commits](https://github.com/Nolpak14/agorio/commits/main))
+First release of the v1.0.0 GA program — locks the public API surface so the 90-day no-breaking-changes clock can start cleanly at v1.0.0-rc.1. ([v1.0 plan](./docs/releases/v1.0-plan.md) · [migration guide](./docs/releases/migration-0.x-to-1.0.md) · [v0.9 commits](https://github.com/Nolpak14/agorio/commits/main))
 
 - 🧰 **MCP spec methods on `McpClient`** — `initialize`, `notifyInitialized`, `listTools` / `callTool`, `listResources` / `readResource`, `listPrompts` / `getPrompt`. Talk to any standard MCP server (GitHub MCP, Filesystem MCP, custom internal) without going through UCP discovery. Generic `call()` stays as the escape hatch.
 - 🔍 **UCP introspection** — `getSigningKey(kid)`, `getPaymentHandler(id)` (full config + schemas), `getA2aEndpoint()`, `getExtensionsOf(parentName)`, `getCapabilityLineage(name)`. The profile metadata is finally addressable.
 - 🔁 **ACP idempotency keys** — optional `idempotencyKey` param on `createCheckout` / `updateCheckout` / `completeCheckout` / `cancelCheckout`. Strongly recommended on `completeCheckout` since retries charge the buyer.
 - 💸 **AP2 `RefundMandate`** — new mandate type modeled symmetrically on `IntentMandate`, with `originalMandateId` and optional `reason`. `Ap2Client.createRefundMandate()` issues one; existing `sign()` / `submitPayment()` handles the rest.
 - 🛡️ **Cloud RBAC enforcement** — schema landed in v0.8; v0.9 wires it up. `requireRole(minimum)` gates server actions; team admin UI at `/team` (invite / change-role / remove) with Resend invite emails. Owner role immutable; only owners can grant admin; every action audit-logged.
-- ⚠️ **Breaking:** `AgentOptions.experimental_ap2` removed (deprecated in v0.8). [One-line migration](./docs/migration-0.x-to-1.0.md). 418 tests passing.
+- ⚠️ **Breaking:** `AgentOptions.experimental_ap2` removed (deprecated in v0.8). [One-line migration](./docs/releases/migration-0.x-to-1.0.md). 418 tests passing.
 
 ---
 
 ## New in v0.8 — Compliance & Hardening
 
-EU AI Act enforcement begins **2 August 2026**. v0.8 ships the artifacts and primitives enterprise buyers want — without dropping any v0.7 capability. ([v0.8 plan](./docs/v0.8-plan.md) · [security posture](./docs/security.md) · [compliance posture](./docs/compliance.md))
+EU AI Act enforcement begins **2 August 2026**. v0.8 ships the artifacts and primitives enterprise buyers want — without dropping any v0.7 capability. ([v0.8 plan](./docs/releases/v0.8-plan.md) · [security posture](./docs/security.md) · [compliance posture](./docs/compliance.md))
 
 - 🛒 **BigCommerce adapter** — third real-merchant proof point with feature parity to Shopify + WooCommerce.
 - 🔐 **Agent identity attestation** — HMAC-signed `X-Agorio-Attestation` header on outgoing requests. Merchants verify with a shared secret. `AgentAttestation.wrapFetch()` is a one-liner.
@@ -73,7 +73,7 @@ EU AI Act enforcement begins **2 August 2026**. v0.8 ships the artifacts and pri
 
 ## New in v0.7 — B2B Procurement
 
-Build procurement agents that comparison-shop merchants, pause for human approval above your threshold, attach a PO# to every cart, and stream the full audit trail to [Agorio Cloud](https://cloud.agorio.dev) — composed as a single `AgentChain` of sub-agents. ([Full demo](./examples/procurement) · [Landing](https://agorio.dev/procurement) · [v0.7 plan](./docs/v0.7-plan.md))
+Build procurement agents that comparison-shop merchants, pause for human approval above your threshold, attach a PO# to every cart, and stream the full audit trail to [Agorio Cloud](https://cloud.agorio.dev) — composed as a single `AgentChain` of sub-agents. ([Full demo](./examples/procurement) · [Landing](https://agorio.dev/procurement) · [v0.7 plan](./docs/releases/v0.7-plan.md))
 
 ```typescript
 import { AgentChain, ShoppingAgent, ClaudeAdapter, agorioCloud } from '@agorio/sdk';
@@ -397,7 +397,7 @@ const isWc = await isWooCommerceStore('some-shop.com'); // true | false
 
 ### Add custom tools with plugins
 
-See the [Plugin Development Guide](docs/plugin-development.md) for a full walk-through including enterprise lifecycle hooks, a wishlist plugin example, tests, and publishing instructions.
+See the [Plugin Development Guide](docs/guides/plugin-development.md) for a full walk-through including enterprise lifecycle hooks, a wishlist plugin example, tests, and publishing instructions.
 
 
 ```typescript
@@ -532,7 +532,7 @@ await agent.run('find me running shoes under $100');
 // Trace appears at cloud.agorio.dev/traces within seconds.
 ```
 
-Get an API key at [cloud.agorio.dev/api-keys](https://cloud.agorio.dev/api-keys) after subscribing. Network failures never break your agent — `agorioCloud()` swallows errors and only emits `console.warn` on bad/revoked keys or unreachable endpoints. See [docs/cloud-setup.md](docs/cloud-setup.md) for the full guide.
+Get an API key at [cloud.agorio.dev/api-keys](https://cloud.agorio.dev/api-keys) after subscribing. Network failures never break your agent — `agorioCloud()` swallows errors and only emits `console.warn` on bad/revoked keys or unreachable endpoints. See [docs/guides/cloud-setup.md](docs/guides/cloud-setup.md) for the full guide.
 
 ---
 

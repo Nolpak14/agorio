@@ -26,4 +26,4 @@ policy is in [docs/semver.md](../semver.md). Headline:
 - The benefit is that v1.x customers can lock to `^1.0.0` and accept patch + minor upgrades
   without integration risk.
 - v0.x → v1.0 is itself a major bump with a migration guide
-  ([docs/migration-0.x-to-1.0.md](../migration-0.x-to-1.0.md)).
+  ([docs/migration-0.x-to-1.0.md](../releases/migration-0.x-to-1.0.md)).

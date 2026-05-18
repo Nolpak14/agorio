@@ -1,6 +1,6 @@
 # Agorio SDK Roadmap
 
-> **Last updated:** 2026-05-18 (v0.9.0 shipped). This roadmap supersedes earlier versions. The pivot from "paid plugins" to "open core + Agorio Cloud" is described in [docs/monetization.md](monetization.md). The road to v1.0.0 GA is tracked in [docs/v1.0-plan.md](v1.0-plan.md) and umbrella issue [#61](https://github.com/Nolpak14/agorio/issues/61).
+> **Last updated:** 2026-05-18 (v0.9.0 shipped). This roadmap supersedes earlier versions. The pivot from "paid plugins" to "open core + Agorio Cloud" is described in [docs/monetization.md](monetization.md). The road to v1.0.0 GA is tracked in [docs/v1.0-plan.md](releases/v1.0-plan.md) and umbrella issue [#61](https://github.com/Nolpak14/agorio/issues/61).
 
 ## Strategic positioning
 
@@ -55,7 +55,7 @@ Agorio is the **protocol-neutral SDK for building AI commerce agents**. The bet:
 - Browser playground (Next.js static export) at agorio.dev/playground
 - 233 tests
 
-Detailed retrospective: [docs/v0.4-plan.md](v0.4-plan.md).
+Detailed retrospective: [docs/v0.4-plan.md](releases/v0.4-plan.md).
 
 ### v0.4.2 — Monetization Layer (May 2026)
 
@@ -80,24 +80,24 @@ The Stripe + Neon + customer-dashboard scaffolding shipped under the v0.4.x line
 - [x] **AP2 client (initial)** — `Ap2Client` with Intent Mandate and Cart Mandate signing, behind `experimental_ap2` feature flag. 21 tests.
 - [x] **WooCommerce adapter** — REST API v3, auto-detected via `/wp-json/wc/v3` probe, read-only without credentials, checkout with consumer key/secret. 21 tests.
 - [x] **Pricing page rewrite** — Pro tier repositioned as Agorio Cloud early-access
-- [x] **Plugin development guide** — `docs/plugin-development.md`
+- [x] **Plugin development guide** — `docs/guides/plugin-development.md`
 - 301 tests across 17+ test files
 
-Detailed plan: [docs/v0.5-plan.md](v0.5-plan.md).
+Detailed plan: [docs/v0.5-plan.md](releases/v0.5-plan.md).
 
 ### v0.6.0 — Agorio Cloud MVP (May 2026)
 
 - [x] **`agorioCloud({ apiKey })` SDK helper** — wraps existing `tracer`/`onLog`/`AgentResult.usage` and POSTs traces to the ingestion endpoint. New `AgentOptions.onComplete` callback wired through `ShoppingAgent.run` / `runStream`. Spread into `AgentOptions` and you're done.
 - [x] **Hosted dashboard at `cloud.agorio.dev`** — sibling Next.js app sharing the Neon DB with `site/`. Routes: `/auth/[pathname]`, `/traces`, `/traces/[runId]`, `/api-keys`, `/api/ingest`, `/api/auth/[...path]`.
 - [x] **Trace explorer** — per-run drilldown with usage grid, span table, level-colored log table, final answer / error block. Auto-refreshes every 2 s while a run is `in_progress`.
-- [x] **API key management on cloud** — per-env keys (`dev`/`prod`/`test`), one-time reveal, soft-delete revoke. Keys are masked everywhere after creation. (Initially shipped on site; migrated to cloud post-launch — see "Post-launch patches" in [v0.6-plan.md](v0.6-plan.md).)
+- [x] **API key management on cloud** — per-env keys (`dev`/`prod`/`test`), one-time reveal, soft-delete revoke. Keys are masked everywhere after creation. (Initially shipped on site; migrated to cloud post-launch — see "Post-launch patches" in [v0.6-plan.md](releases/v0.6-plan.md).)
 - [x] **Auth surface redesign** — terminal-frame design over better-auth-ui's shadcn components, mapped to Agorio brand via `--neon-*` token overrides. Dynamic `/auth/[pathname]` route handles sign-in, sign-up, forgot-password, reset-password, verify-email, callback.
 - [x] **Cross-subdomain sessions** — `cookies.domain: '.agorio.dev'` in production, plus `cloud.agorio.dev` added to Neon Auth's Trusted Domains. Users signed in on either subdomain are authenticated on both.
 - [x] **Schema additions** — `api_keys`, `trace_runs`, `trace_spans`, `trace_logs` with three new pgEnums. Migrations owned by `site/`; `cloud/db/schema.ts` is duplicated with a sync header.
 - [x] **Pricing copy + onboarding** — `/pricing` reframed "available now (Beta)"; `/success` walks new subscribers through API key → first trace on Cloud.
 - 306 tests across 18 test files.
 
-Detailed plan + post-launch patches: [docs/v0.6-plan.md](v0.6-plan.md). User-facing setup guide: [docs/cloud-setup.md](cloud-setup.md). Operational runbook: [docs/v0.6-release-checklist.md](v0.6-release-checklist.md).
+Detailed plan + post-launch patches: [docs/v0.6-plan.md](releases/v0.6-plan.md). User-facing setup guide: [docs/cloud-setup.md](guides/cloud-setup.md). Operational runbook: [docs/v0.6-release-checklist.md](releases/v0.6-release-checklist.md).
 
 ---
 
@@ -110,7 +110,7 @@ Detailed plan + post-launch patches: [docs/v0.6-plan.md](v0.6-plan.md). User-fac
 - [x] **Procurement reference agent** in `examples/procurement/` with CI smoke test against three MockMerchants. WooCommerce docker-compose + Shopify dev store setup documented for full-demo mode.
 - [x] **Cloud trace explorer hierarchy** — sub-agent strip + indented spans table.
 - [x] **Marketing surface** — `agorio.dev/procurement` landing page, README "v0.7" section.
-- 362 tests. Detailed plan: [docs/v0.7-plan.md](v0.7-plan.md).
+- 362 tests. Detailed plan: [docs/v0.7-plan.md](releases/v0.7-plan.md).
 
 ### v0.8.0 — Compliance & Hardening (May 2026)
 
@@ -122,15 +122,15 @@ Detailed plan + post-launch patches: [docs/v0.6-plan.md](v0.6-plan.md). User-fac
 - [x] **RBAC schema** — `orgs` + `org_members` tables landed (schema only; enforcement deferred to v0.9).
 - [x] **Bench harness** — `bench/run.ts` + `bench/baseline-v0.8.0.json`.
 - [x] **Self-hosted Docker bundle** — `docker/docker-compose.yml` + `docker/cloud.Dockerfile`.
-- [x] **Adapter SDK + community-plugin docs** — `docs/adapter-sdk.md`, `docs/community-plugins.md`, `docs/plugins-registry.md`, `docs/adapters-registry.md`, `docs/certification.md`.
-- [x] **ADRs 0001–0007** — versioning policy (`docs/semver.md`), migration guide (`docs/migration-0.x-to-1.0.md`).
-- 403 tests. Detailed plan: [docs/v0.8-plan.md](v0.8-plan.md).
+- [x] **Adapter SDK + community-plugin docs** — `docs/guides/adapter-sdk.md`, `docs/guides/community-plugins.md`, `docs/plugins-registry.md`, `docs/adapters-registry.md`, `docs/certification.md`.
+- [x] **ADRs 0001–0007** — versioning policy (`docs/semver.md`), migration guide (`docs/releases/migration-0.x-to-1.0.md`).
+- 403 tests. Detailed plan: [docs/v0.8-plan.md](releases/v0.8-plan.md).
 
 ### v0.9.0 — SDK GA Polish (May 18, 2026)
 
 First release of the v1.0.0 GA program. Locks the public API surface ahead of the 90-day no-breaking-changes clock at v1.0.0-rc.1.
 
-- [x] **Removed `AgentOptions.experimental_ap2`** — the only breaking change in the v1.0 program. One-line migration in [docs/migration-0.x-to-1.0.md](migration-0.x-to-1.0.md).
+- [x] **Removed `AgentOptions.experimental_ap2`** — the only breaking change in the v1.0 program. One-line migration in [docs/migration-0.x-to-1.0.md](releases/migration-0.x-to-1.0.md).
 - [x] **MCP spec methods on `McpClient`** — `initialize`, `notifyInitialized`, `listTools`/`callTool`, `listResources`/`readResource`, `listPrompts`/`getPrompt`. Talk to any standard MCP server (GitHub MCP, Filesystem MCP, custom internal); generic `call()` stays as the escape hatch.
 - [x] **UCP introspection helpers** — `getSigningKeys()` / `getSigningKey(kid)`, `getPaymentHandler(id)`, `getA2aEndpoint()`, `getExtensionsOf(parentName)`, `getCapabilityLineage(name)`.
 - [x] **ACP idempotency keys** — optional `idempotencyKey` param on all write methods sends `Idempotency-Key` header. Strongly recommended on `completeCheckout`.

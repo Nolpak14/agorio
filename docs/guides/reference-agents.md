@@ -28,7 +28,7 @@ work. All examples live in `examples/` and are exercised by CI on every release.
 
 A worked example is not yet in `examples/`, but the procurement example already produces a
 full audit trail visible in Cloud's trace explorer and downloadable via
-`/api/compliance/export`. See [compliance.md](./compliance.md) for the data flow.
+`/api/compliance/export`. See [compliance.md](../compliance.md) for the data flow.
 
 ## Self-hosted (v1.0+)
 

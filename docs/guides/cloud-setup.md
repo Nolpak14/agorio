@@ -1,6 +1,6 @@
 # Agorio Cloud — Setup Guide
 
-> **Status:** Agorio Cloud is available as of v0.6.0 (May 2026). Pro tier ($149/yr or $19/mo) unlocks access. Source plan: [docs/v0.6-plan.md](v0.6-plan.md).
+> **Status:** Agorio Cloud is available as of v0.6.0 (May 2026). Pro tier ($149/yr or $19/mo) unlocks access. Source plan: [docs/v0.6-plan.md](../releases/v0.6-plan.md).
 
 ## What is Agorio Cloud?
 
@@ -142,4 +142,4 @@ The customer record is keyed on the email used at Stripe checkout. If you signed
 - Fleet view — org-level aggregates across all your agents
 - Stale-run sweeper
 
-See [docs/ROADMAP.md](ROADMAP.md) for the full plan.
+See [docs/ROADMAP.md](../ROADMAP.md) for the full plan.

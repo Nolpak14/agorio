@@ -9,7 +9,7 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [0.9.0] — Unreleased — SDK GA Polish
 
-First release of the v1.0.0 GA program. Locks the public API surface so the 90-day no-breaking-changes clock can start cleanly at v1.0.0-rc.1. See [`docs/v1.0-plan.md`](docs/v1.0-plan.md) and tracks [issue #39](https://github.com/Nolpak14/agorio/issues/39).
+First release of the v1.0.0 GA program. Locks the public API surface so the 90-day no-breaking-changes clock can start cleanly at v1.0.0-rc.1. See [`docs/releases/v1.0-plan.md`](docs/releases/v1.0-plan.md) and tracks [issue #39](https://github.com/Nolpak14/agorio/issues/39).
 
 ### Added
 
@@ -22,7 +22,7 @@ First release of the v1.0.0 GA program. Locks the public API surface so the 90-d
 
 ### Removed
 
-- **`AgentOptions.experimental_ap2`** — deprecated in v0.8, removed in v0.9 per the [versioning policy](docs/semver.md). Use `AgentOptions.ap2` instead. See [`docs/migration-0.x-to-1.0.md`](docs/migration-0.x-to-1.0.md) for the one-line edit.
+- **`AgentOptions.experimental_ap2`** — deprecated in v0.8, removed in v0.9 per the [versioning policy](docs/semver.md). Use `AgentOptions.ap2` instead. See [`docs/releases/migration-0.x-to-1.0.md`](docs/releases/migration-0.x-to-1.0.md) for the one-line edit.
 
 ### Breaking changes
 
@@ -30,7 +30,7 @@ First release of the v1.0.0 GA program. Locks the public API surface so the 90-d
 
 ### Deferred to v0.10
 
-Full ACP coverage (refunds, fulfillment, orders, webhook events), full AP2 coverage (x402 stablecoin extension, `DelegatedMandate`, JWK-based signature verification), and the v1.0.0 bench baseline. See `docs/v1.0-plan.md` for rationale — these need spec-aligned wire formats and locking guessed shapes in v0.9 would force a breaking change in v1.1+.
+Full ACP coverage (refunds, fulfillment, orders, webhook events), full AP2 coverage (x402 stablecoin extension, `DelegatedMandate`, JWK-based signature verification), and the v1.0.0 bench baseline. See `docs/releases/v1.0-plan.md` for rationale — these need spec-aligned wire formats and locking guessed shapes in v0.9 would force a breaking change in v1.1+.
 
 ### Tests
 
@@ -40,7 +40,7 @@ Full ACP coverage (refunds, fulfillment, orders, webhook events), full AP2 cover
 
 ## [0.8.0] — Unreleased — Compliance & Hardening
 
-EU AI Act enforcement begins **2 August 2026**. This release ships the compliance artifacts and security hardening enterprise buyers require. See [`docs/v0.8-plan.md`](docs/v0.8-plan.md) and tracks [issue #38](https://github.com/Nolpak14/agorio/issues/38).
+EU AI Act enforcement begins **2 August 2026**. This release ships the compliance artifacts and security hardening enterprise buyers require. See [`docs/releases/v0.8-plan.md`](docs/releases/v0.8-plan.md) and tracks [issue #38](https://github.com/Nolpak14/agorio/issues/38).
 
 ### Added
 
@@ -71,7 +71,7 @@ Total: **403** tests (387 root + 12 procurement + 4 session-redis).
 
 ## [0.7.0] — Unreleased — B2B Procurement Vertical
 
-The headline B2B demo plus the primitives that make it non-trivial to clone. See [`docs/v0.7-plan.md`](docs/v0.7-plan.md) for the full plan and tracks [issue #37](https://github.com/Nolpak14/agorio/issues/37).
+The headline B2B demo plus the primitives that make it non-trivial to clone. See [`docs/releases/v0.7-plan.md`](docs/releases/v0.7-plan.md) for the full plan and tracks [issue #37](https://github.com/Nolpak14/agorio/issues/37).
 
 ### Added
 
@@ -112,7 +112,7 @@ After `@agorio/sdk@0.6.0` shipped to npm, a series of post-launch patches landed
 
 - **Dynamic `/auth/[pathname]` route** added to both `site/` and `cloud/` (replaces the original single-view `/login` page). One route handles sign-in, sign-up, forgot-password, reset-password, verify-email, callback. The original `/login` route now redirects to `/auth/sign-in` for backward-compat.
 - **`NeonAuthUIProvider` wired into cloud/** — the missing provider was why cloud's login page initially rendered blank. Both `site/components/Providers.tsx` and the new `cloud/components/Providers.tsx` thread `useRouter().push/replace` + Next.js `Link` through the provider for client-side navigation, and force `defaultTheme="dark"`.
-- **Cross-subdomain session sharing** — `cookies.domain: '.agorio.dev'` added to both `auth-server.ts` files (gated on `VERCEL_ENV === 'production'` so localhost / `*.vercel.app` previews keep working). Sessions persist across `agorio.dev` ↔ `cloud.agorio.dev`. **One-time Neon Console action required**: add the new subdomain to the project's "Trusted domains" list in the Neon Auth dashboard (documented in `docs/v0.6-release-checklist.md`).
+- **Cross-subdomain session sharing** — `cookies.domain: '.agorio.dev'` added to both `auth-server.ts` files (gated on `VERCEL_ENV === 'production'` so localhost / `*.vercel.app` previews keep working). Sessions persist across `agorio.dev` ↔ `cloud.agorio.dev`. **One-time Neon Console action required**: add the new subdomain to the project's "Trusted domains" list in the Neon Auth dashboard (documented in `docs/releases/v0.6-release-checklist.md`).
 - **`html.dark` set server-side** in both root layouts to prevent dark-mode FOUC before the theme script hydrates.
 
 ### Brand-native auth visuals ("Terminal-Native Authentication")
@@ -199,7 +199,7 @@ This is the Open Core release. All five governance plugins are relicensed MIT an
 - **WooCommerce adapter** (`WooCommerceAdapter`) — connects agents to any WooCommerce (WordPress) store via the REST API v3. Public browsing works without credentials; checkout requires a consumer key/secret pair. The agent auto-detects WooCommerce stores via an `/wp-json/wc/v3` probe when no adapter is pre-registered. Exports: `WooCommerceAdapter`, `WooCommerceAdapterError`, `isWooCommerceStore`, `WooCommerceAdapterOptions`. ([#43])
 - **AP2 client** (`Ap2Client`) — experimental Agent Payments Protocol (FIDO Alliance) client. Implements the mandate-based flow: `createIntentMandate` → `attachCart` → `sign` → `submitPayment`. Ships with a deterministic mock signer (`mock_sig_` prefix) for tests and CI. Add `experimental_ap2: true` to `AgentOptions` to opt in. Exports: `Ap2Client`, `Ap2Error`, `IntentMandate`, `CartMandate`, `CartLineItem`, `SignedMandate`, `Ap2PaymentResult`, `Ap2ClientOptions`. ([#42])
 - **Shopify UCP migration** — `ShopifyAdapter` now prefers `/.well-known/ucp` discovery for all `*.myshopify.com` stores (set `preferUcp: false` to force Storefront GraphQL). Handles both array-format and object-keyed capability maps. Public `tryUcpDiscovery()` method for testing. `MerchantAdapterDiscovery.protocol` now accepts `'ucp'`. ([#41])
-- **Plugin development guide** (`docs/plugin-development.md`) — full walk-through of `AgentPlugin` vs `EnterprisePlugin`, all four lifecycle hooks, `PluginContext` API, a complete wishlist plugin example, and publishing conventions. Linked from `README.md` and `CONTRIBUTING.md`. ([#45])
+- **Plugin development guide** (`docs/guides/plugin-development.md`) — full walk-through of `AgentPlugin` vs `EnterprisePlugin`, all four lifecycle hooks, `PluginContext` API, a complete wishlist plugin example, and publishing conventions. Linked from `README.md` and `CONTRIBUTING.md`. ([#45])
 - `AgentOptions.experimental_ap2?: boolean` — opt-in flag for AP2 payment flow (stored, not yet wired through the agent loop).
 
 ### Changed

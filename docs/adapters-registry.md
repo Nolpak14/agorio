@@ -1,7 +1,7 @@
 # Adapters registry
 
 Merchant adapters available for `@agorio/sdk`. Open a PR following the
-[adapter SDK guide](./adapter-sdk.md) to list your own.
+[adapter SDK guide](./guides/adapter-sdk.md) to list your own.
 
 ## Core (shipped with the SDK)
 
