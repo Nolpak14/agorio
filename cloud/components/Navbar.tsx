@@ -19,6 +19,9 @@ export default function CloudNavbar() {
             <Link href="/api-keys" className="hover:text-[var(--accent)] transition-colors">
               API keys
             </Link>
+            <Link href="/team" className="hover:text-[var(--accent)] transition-colors">
+              Team
+            </Link>
             <Link href="/compliance" className="hover:text-[var(--accent)] transition-colors">
               Compliance
             </Link>
