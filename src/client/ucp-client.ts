@@ -17,6 +17,7 @@ import type {
   NormalizedService,
   PaymentHandler,
   TransportPreference,
+  JwkKey,
 } from '../types/index.js';
 import { McpClient, McpError } from './mcp-client.js';
 
@@ -98,6 +99,7 @@ export class UcpClient {
     const capabilities = this.normalizeCapabilities(profile);
     const services = this.normalizeServices(profile);
     const paymentHandlers = profile.payment?.handlers ?? [];
+    const signingKeys = profile.signing_keys ?? [];
 
     this.discovery = {
       profile,
@@ -107,6 +109,7 @@ export class UcpClient {
       services,
       capabilities,
       paymentHandlers,
+      signingKeys,
     };
 
     return this.discovery;
@@ -173,10 +176,78 @@ export class UcpClient {
   }
 
   /**
+   * Get the A2A (agent-to-agent) agent card URL for a service. (v0.9)
+   */
+  getA2aEndpoint(serviceName?: string): string | undefined {
+    const services = this.getDiscovery().services;
+    const service = serviceName
+      ? services.find(s => s.name === serviceName)
+      : services[0];
+    return service?.transports.a2a?.agentCard;
+  }
+
+  /**
    * Get payment handlers.
    */
   getPaymentHandlers(): PaymentHandler[] {
     return this.getDiscovery().paymentHandlers;
+  }
+
+  /**
+   * Get a single payment handler by id. (v0.9)
+   *
+   * Returned object includes `config`, `config_schema`, and
+   * `instrument_schemas` so callers can introspect what the handler accepts.
+   */
+  getPaymentHandler(id: string): PaymentHandler | undefined {
+    return this.getDiscovery().paymentHandlers.find(h => h.id === id);
+  }
+
+  /**
+   * Get all signing keys advertised in the profile. (v0.9)
+   */
+  getSigningKeys(): JwkKey[] {
+    return this.getDiscovery().signingKeys;
+  }
+
+  /**
+   * Look up a signing key by its `kid`. (v0.9)
+   */
+  getSigningKey(kid: string): JwkKey | undefined {
+    return this.getDiscovery().signingKeys.find(k => k.kid === kid);
+  }
+
+  /**
+   * List capabilities whose `extends` field points at `parentName`. (v0.9)
+   *
+   * Useful for discovering extensions of a base capability — e.g., every
+   * extension of `dev.ucp.shopping.checkout` that the merchant advertises.
+   */
+  getExtensionsOf(parentName: string): UcpCapability[] {
+    return this.getDiscovery().capabilities.filter(c => c.extends === parentName);
+  }
+
+  /**
+   * Walk the `extends` chain from a capability up to its base. (v0.9)
+   *
+   * Returns the chain ordered from the queried capability to the root. If a
+   * capability is not found mid-chain, the walk stops and the partial chain
+   * is returned. Loops are guarded.
+   */
+  getCapabilityLineage(name: string): UcpCapability[] {
+    const caps = this.getDiscovery().capabilities;
+    const lineage: UcpCapability[] = [];
+    const seen = new Set<string>();
+    let current = caps.find(c => c.name === name);
+
+    while (current && !seen.has(current.name)) {
+      seen.add(current.name);
+      lineage.push(current);
+      if (!current.extends) break;
+      current = caps.find(c => c.name === current!.extends);
+    }
+
+    return lineage;
   }
 
   /**

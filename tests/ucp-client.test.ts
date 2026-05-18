@@ -188,3 +188,175 @@ describe('UcpClient', () => {
     });
   });
 });
+
+// ─── v0.9 introspection helpers ───
+// Signing keys, payment handler config, capability extension graph, A2A.
+
+import type { Server } from 'node:http';
+
+interface InlineMerchant {
+  domain: string;
+  stop:   () => Promise<void>;
+}
+
+async function startInlineMerchant(profile: Record<string, unknown>): Promise<InlineMerchant> {
+  const { default: express } = await import('express');
+  const app = express();
+  app.use(express.json());
+
+  app.get('/.well-known/ucp', (_req, res) => res.json(profile));
+  app.get('/.well-known/ucp.json', (_req, res) => res.json(profile));
+
+  return await new Promise<InlineMerchant>((resolve) => {
+    const server: Server = app.listen(0, () => {
+      const addr = server.address();
+      const port = typeof addr === 'object' && addr ? addr.port : 0;
+      resolve({
+        domain: `http://127.0.0.1:${port}`,
+        stop:   () => new Promise<void>((r) => server.close(() => r())),
+      });
+    });
+  });
+}
+
+describe('UcpClient — v0.9 introspection helpers', () => {
+  let merchant: MockMerchant;
+
+  beforeAll(async () => {
+    merchant = new MockMerchant({ name: 'Introspection Store' });
+    await merchant.start();
+  });
+
+  afterAll(async () => {
+    await merchant.stop();
+  });
+
+  describe('signing keys', () => {
+    it('captures profile.signing_keys onto DiscoveryResult.signingKeys', async () => {
+      const client = new UcpClient();
+      const result = await client.discover(merchant.domain);
+      expect(result.signingKeys).toHaveLength(1);
+      expect(result.signingKeys[0]).toMatchObject({
+        kty: 'EC',
+        kid: 'mock-signing-key-1',
+        alg: 'ES256',
+      });
+    });
+
+    it('getSigningKeys() returns the same array', async () => {
+      const client = new UcpClient();
+      await client.discover(merchant.domain);
+      expect(client.getSigningKeys()).toHaveLength(1);
+    });
+
+    it('getSigningKey(kid) finds by kid', async () => {
+      const client = new UcpClient();
+      await client.discover(merchant.domain);
+      expect(client.getSigningKey('mock-signing-key-1')?.alg).toBe('ES256');
+      expect(client.getSigningKey('does-not-exist')).toBeUndefined();
+    });
+
+    it('returns empty array when profile has no signing_keys', async () => {
+      const inline = await startInlineMerchant({
+        ucp: {
+          version: '2026-01-11',
+          services: { 'dev.ucp.shopping': { version: '2026-01-11', spec: '', rest: { schema: '', endpoint: '' } } },
+          capabilities: [],
+        },
+      });
+      try {
+        const client = new UcpClient();
+        await client.discover(inline.domain);
+        expect(client.getSigningKeys()).toEqual([]);
+      } finally {
+        await inline.stop();
+      }
+    });
+  });
+
+  describe('payment handler introspection', () => {
+    it('getPaymentHandler(id) returns the handler with its config', async () => {
+      const client = new UcpClient();
+      await client.discover(merchant.domain);
+      const handler = client.getPaymentHandler('mock_payment');
+      expect(handler).toBeDefined();
+      expect(handler?.config).toEqual({ test_mode: true });
+    });
+
+    it('getPaymentHandler(id) returns undefined for missing handler', async () => {
+      const client = new UcpClient();
+      await client.discover(merchant.domain);
+      expect(client.getPaymentHandler('nope')).toBeUndefined();
+    });
+  });
+
+  describe('capability extension graph', () => {
+    it('getExtensionsOf() returns capabilities whose extends matches', async () => {
+      const client = new UcpClient();
+      await client.discover(merchant.domain);
+      const exts = client.getExtensionsOf('dev.ucp.shopping.order');
+      expect(exts.map(c => c.name)).toEqual(['dev.ucp.shopping.fulfillment']);
+    });
+
+    it('getExtensionsOf() returns [] when nothing extends the given name', async () => {
+      const client = new UcpClient();
+      await client.discover(merchant.domain);
+      expect(client.getExtensionsOf('dev.ucp.unknown')).toEqual([]);
+    });
+
+    it('getCapabilityLineage() walks the extends chain to the root', async () => {
+      const client = new UcpClient();
+      await client.discover(merchant.domain);
+      const chain = client.getCapabilityLineage('dev.ucp.shopping.fulfillment');
+      expect(chain.map(c => c.name)).toEqual([
+        'dev.ucp.shopping.fulfillment',
+        'dev.ucp.shopping.order',
+      ]);
+    });
+
+    it('getCapabilityLineage() returns [self] for a capability with no extends', async () => {
+      const client = new UcpClient();
+      await client.discover(merchant.domain);
+      const chain = client.getCapabilityLineage('dev.ucp.shopping.checkout');
+      expect(chain.map(c => c.name)).toEqual(['dev.ucp.shopping.checkout']);
+    });
+
+    it('getCapabilityLineage() returns [] when the start capability is not found', async () => {
+      const client = new UcpClient();
+      await client.discover(merchant.domain);
+      expect(client.getCapabilityLineage('does.not.exist')).toEqual([]);
+    });
+  });
+
+  describe('A2A transport', () => {
+    it('getA2aEndpoint() returns the agent card URL when present', async () => {
+      const inline = await startInlineMerchant({
+        ucp: {
+          version: '2026-01-11',
+          services: {
+            'dev.ucp.shopping': {
+              version: '2026-01-11',
+              spec:    'https://ucp.dev/specification/overview/',
+              rest:    { schema: '', endpoint: 'http://example/ucp/v1' },
+              a2a:     { agentCard: 'https://example.com/.well-known/agent-card.json' },
+            },
+          },
+          capabilities: [],
+        },
+      });
+      try {
+        const client = new UcpClient();
+        await client.discover(inline.domain);
+        expect(client.getA2aEndpoint()).toBe('https://example.com/.well-known/agent-card.json');
+      } finally {
+        await inline.stop();
+      }
+    });
+
+    it('getA2aEndpoint() returns undefined for services without A2A binding', async () => {
+      const client = new UcpClient();
+      await client.discover(merchant.domain);
+      expect(client.getA2aEndpoint()).toBeUndefined();
+    });
+  });
+});

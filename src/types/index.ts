@@ -205,6 +205,8 @@ export interface DiscoveryResult {
   services: NormalizedService[];
   capabilities: UcpCapability[];
   paymentHandlers: PaymentHandler[];
+  /** Public signing keys advertised in the profile, if any (v0.9). */
+  signingKeys: JwkKey[];
 }
 
 export interface NormalizedService {
