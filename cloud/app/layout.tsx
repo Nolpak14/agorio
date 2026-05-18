@@ -1,11 +1,15 @@
 import type { Metadata } from 'next';
+import { Suspense } from 'react';
 import { Providers } from '@/components/Providers';
+import PostHogIdentify from '@/components/PostHogIdentify';
 import './globals.css';
 
 export const metadata: Metadata = {
   title: 'Agorio Cloud',
   description: 'Hosted observability and control plane for Agorio commerce agents.',
   metadataBase: new URL('https://cloud.agorio.dev'),
+  // Authenticated app — never indexed.
+  robots: { index: false, follow: false },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -20,7 +24,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
       </head>
       <body className="antialiased">
-        <Providers>{children}</Providers>
+        <Providers>
+          <Suspense fallback={null}>
+            <PostHogIdentify />
+          </Suspense>
+          {children}
+        </Providers>
       </body>
     </html>
   );

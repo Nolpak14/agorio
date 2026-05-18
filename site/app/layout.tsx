@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
+import { Suspense } from 'react';
 import Navbar from '@/components/Navbar';
 import { Providers } from '@/components/Providers';
+import PostHogIdentify from '@/components/PostHogIdentify';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -41,6 +43,9 @@ export default function RootLayout({
       </head>
       <body className="antialiased">
         <Providers>
+          <Suspense fallback={null}>
+            <PostHogIdentify />
+          </Suspense>
           <Navbar />
           {children}
         </Providers>

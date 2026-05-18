@@ -15,6 +15,7 @@
     "@neondatabase/serverless": "^1.1.0",
     "drizzle-orm": "^0.45.2",
     "next": "^15.2.0",
+    "posthog-js": "^1.374.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "resend": "^6.12.3"
