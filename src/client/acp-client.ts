@@ -34,16 +34,23 @@ export class AcpClient {
   /**
    * Create a new checkout session.
    * POST /checkout_sessions
+   *
+   * Pass `idempotencyKey` (v0.9) to make this request safe to retry — the
+   * merchant returns the original session on duplicate keys instead of
+   * creating two checkouts.
    */
-  async createCheckout(params: {
-    line_items: Array<{
-      product_id: string;
-      quantity: number;
-      variant_id?: string;
-    }>;
-    shipping_address?: AcpShippingAddress;
-  }): Promise<AcpCheckoutSession> {
-    return this.request('POST', '/checkout_sessions', params);
+  async createCheckout(
+    params: {
+      line_items: Array<{
+        product_id: string;
+        quantity: number;
+        variant_id?: string;
+      }>;
+      shipping_address?: AcpShippingAddress;
+    },
+    opts: { idempotencyKey?: string } = {}
+  ): Promise<AcpCheckoutSession> {
+    return this.request('POST', '/checkout_sessions', params, opts);
   }
 
   /**
@@ -64,26 +71,32 @@ export class AcpClient {
       shipping_address?: AcpShippingAddress;
       payment_handler?: string;
       discount_code?: string;
-    }
+    },
+    opts: { idempotencyKey?: string } = {}
   ): Promise<AcpCheckoutSession> {
-    return this.request('POST', `/checkout_sessions/${sessionId}`, params);
+    return this.request('POST', `/checkout_sessions/${sessionId}`, params, opts);
   }
 
   /**
    * Complete a checkout session with payment.
    * POST /checkout_sessions/:id/complete
+   *
+   * Strongly recommended to pass `idempotencyKey` here — completing a
+   * checkout charges the buyer, so retries without a key risk double charges.
    */
   async completeCheckout(
     sessionId: string,
     params: {
       payment_token: string;
       payment_handler: string;
-    }
+    },
+    opts: { idempotencyKey?: string } = {}
   ): Promise<AcpCheckoutSession> {
     return this.request(
       'POST',
       `/checkout_sessions/${sessionId}/complete`,
-      params
+      params,
+      opts
     );
   }
 
@@ -91,8 +104,11 @@ export class AcpClient {
    * Cancel a checkout session.
    * POST /checkout_sessions/:id/cancel
    */
-  async cancelCheckout(sessionId: string): Promise<AcpCheckoutSession> {
-    return this.request('POST', `/checkout_sessions/${sessionId}/cancel`);
+  async cancelCheckout(
+    sessionId: string,
+    opts: { idempotencyKey?: string } = {}
+  ): Promise<AcpCheckoutSession> {
+    return this.request('POST', `/checkout_sessions/${sessionId}/cancel`, undefined, opts);
   }
 
   /**
@@ -107,21 +123,27 @@ export class AcpClient {
   private async request<T>(
     method: string,
     path: string,
-    body?: unknown
+    body?: unknown,
+    opts: { idempotencyKey?: string } = {}
   ): Promise<T> {
     const url = `${this.endpoint}${path}`;
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), this.timeoutMs);
 
+    const headers: Record<string, string> = {
+      Authorization: `Bearer ${this.apiKey}`,
+      'Content-Type': 'application/json',
+      'API-Version': this.apiVersion,
+      'Request-Id': `req_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+    };
+    if (opts.idempotencyKey) {
+      headers['Idempotency-Key'] = opts.idempotencyKey;
+    }
+
     try {
       const response = await this.fetchFn(url, {
         method,
-        headers: {
-          Authorization: `Bearer ${this.apiKey}`,
-          'Content-Type': 'application/json',
-          'API-Version': this.apiVersion,
-          'Request-Id': `req_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
-        },
+        headers,
         ...(body ? { body: JSON.stringify(body) } : {}),
         signal: controller.signal,
       });

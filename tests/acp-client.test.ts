@@ -295,4 +295,93 @@ describe('AcpClient', () => {
       ).rejects.toThrow(AcpApiError);
     });
   });
+
+  describe('idempotency keys (v0.9)', () => {
+    /** Capture-fetch: records outgoing headers so we can assert on them. */
+    function captureFetch(): { fetch: typeof globalThis.fetch; lastHeaders: () => Headers | undefined } {
+      let lastInit: RequestInit | undefined;
+      const fn: typeof globalThis.fetch = async (input, init) => {
+        lastInit = init;
+        return globalThis.fetch(input, init);
+      };
+      return {
+        fetch: fn,
+        lastHeaders: () => (lastInit?.headers as Headers | undefined),
+      };
+    }
+
+    it('sends Idempotency-Key header when createCheckout is called with a key', async () => {
+      const cap = captureFetch();
+      const client = new AcpClient({
+        endpoint: merchant.acpEndpoint,
+        apiKey:   merchant.requiredApiKey,
+        fetch:    cap.fetch,
+      });
+
+      await client.createCheckout(
+        { line_items: [{ product_id: 'prod_webcam', quantity: 1 }] },
+        { idempotencyKey: 'idem_abc_123' }
+      );
+
+      const headers = cap.lastHeaders();
+      const sent = headers && (headers as unknown as Record<string, string>)['Idempotency-Key'];
+      expect(sent).toBe('idem_abc_123');
+    });
+
+    it('omits Idempotency-Key header when no key is passed', async () => {
+      const cap = captureFetch();
+      const client = new AcpClient({
+        endpoint: merchant.acpEndpoint,
+        apiKey:   merchant.requiredApiKey,
+        fetch:    cap.fetch,
+      });
+
+      await client.createCheckout({
+        line_items: [{ product_id: 'prod_webcam', quantity: 1 }],
+      });
+
+      const headers = cap.lastHeaders();
+      const sent = headers && (headers as unknown as Record<string, string>)['Idempotency-Key'];
+      expect(sent).toBeUndefined();
+    });
+
+    it('propagates Idempotency-Key on completeCheckout', async () => {
+      const client = new AcpClient({
+        endpoint: merchant.acpEndpoint,
+        apiKey:   merchant.requiredApiKey,
+      });
+
+      // Set up a ready-for-payment session first.
+      const session = await client.createCheckout({
+        line_items: [{ product_id: 'prod_webcam', quantity: 1 }],
+      });
+      await client.updateCheckout(session.id, {
+        shipping_address: {
+          name:        'Idem Tester',
+          line_one:    '1 Idem Way',
+          city:        'Idemville',
+          state:       'CA',
+          postal_code: '94105',
+          country:     'US',
+        },
+      });
+
+      const cap = captureFetch();
+      const idemClient = new AcpClient({
+        endpoint: merchant.acpEndpoint,
+        apiKey:   merchant.requiredApiKey,
+        fetch:    cap.fetch,
+      });
+
+      await idemClient.completeCheckout(
+        session.id,
+        { payment_token: 'tok_test_success', payment_handler: 'acp.payments.mock' },
+        { idempotencyKey: 'idem_complete_xyz' }
+      );
+
+      const headers = cap.lastHeaders();
+      const sent = headers && (headers as unknown as Record<string, string>)['Idempotency-Key'];
+      expect(sent).toBe('idem_complete_xyz');
+    });
+  });
 });

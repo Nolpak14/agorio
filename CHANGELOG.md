@@ -11,6 +11,15 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 First release of the v1.0.0 GA program. Locks the public API surface so the 90-day no-breaking-changes clock can start cleanly at v1.0.0-rc.1. See [`docs/v1.0-plan.md`](docs/v1.0-plan.md) and tracks [issue #39](https://github.com/Nolpak14/agorio/issues/39).
 
+### Added
+
+- **MCP spec-compliant client methods** — `initialize()`, `notifyInitialized()`, `listTools()`, `callTool(name, args)`, `listResources()`, `readResource(uri)`, `listPrompts()`, `getPrompt(name, args)`. Lets agorio agents talk to any standard MCP server (GitHub MCP, Filesystem MCP, custom internal servers) without going through UCP discovery. Generic `call()` stays as the escape hatch. New `MCP_PROTOCOL_VERSION` constant; new exported types: `McpInitializeResult`, `McpToolDescriptor`, `McpToolCallResult`, `McpContentBlock`, `McpResource`, `McpPrompt`, etc.
+- **UCP introspection helpers** — `getSigningKeys()` / `getSigningKey(kid)` (JWK access for downstream signature verification), `getPaymentHandler(id)` (full config + schemas), `getA2aEndpoint(serviceName?)`, `getExtensionsOf(parentName)` and `getCapabilityLineage(name)` (capability extension graph). `DiscoveryResult.signingKeys` is now populated.
+- **ACP idempotency-key support** — optional `idempotencyKey` parameter on `createCheckout`, `updateCheckout`, `completeCheckout`, `cancelCheckout`. Sent as `Idempotency-Key` header. Strongly recommended on `completeCheckout` since retrying a checkout charges the buyer.
+- **AP2 `RefundMandate`** — new mandate type modeled symmetrically on `IntentMandate`, with `originalMandateId` and optional `reason`. `Ap2Client.createRefundMandate()` issues one; the existing `sign()` / `submitPayment()` flow handles the rest. `verifyMandateShape()` extended to validate `originalMandateId` is a non-empty string when present.
+- **Cloud RBAC enforcement** — schema landed in v0.8; v0.9 wires it up. New `cloud/lib/rbac.ts` resolves `{ email, customer, org, role }`. `requireRole(minimum)` gates API-key actions (admin+), team admin actions (admin+), and traces / audit-log pages (viewer+). Denied attempts write `rbac.denied` audit entries.
+- **Cloud team management UI** — new `/team` route lists `org_members`, invite/change-role/remove server actions, Resend-backed invite emails (`cloud/lib/emails.ts`). Owner role immutable from UI; admins can't remove themselves; only owners can grant admin.
+
 ### Removed
 
 - **`AgentOptions.experimental_ap2`** — deprecated in v0.8, removed in v0.9 per the [versioning policy](docs/semver.md). Use `AgentOptions.ap2` instead. See [`docs/migration-0.x-to-1.0.md`](docs/migration-0.x-to-1.0.md) for the one-line edit.
@@ -18,6 +27,14 @@ First release of the v1.0.0 GA program. Locks the public API surface so the 90-d
 ### Breaking changes
 
 - Setting `experimental_ap2: true` is now a TypeScript error. The runtime never used the field as a fallback (only `ap2` was read), so callers that already migrated to `ap2` in v0.8 are unaffected.
+
+### Deferred to v0.10
+
+Full ACP coverage (refunds, fulfillment, orders, webhook events), full AP2 coverage (x402 stablecoin extension, `DelegatedMandate`, JWK-based signature verification), and the v1.0.0 bench baseline. See `docs/v1.0-plan.md` for rationale — these need spec-aligned wire formats and locking guessed shapes in v0.9 would force a breaking change in v1.1+.
+
+### Tests
+
+- +11 MCP spec methods, +13 UCP introspection, +3 ACP idempotency, +4 AP2 RefundMandate. Total: 387 → 418.
 
 ---
 

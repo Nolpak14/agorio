@@ -285,3 +285,63 @@ describe('verifyMandateShape', () => {
     expect(verifyMandateShape(undefined).ok).toBe(false);
   });
 });
+
+describe('Ap2Client.createRefundMandate (v0.9)', () => {
+  it('creates a RefundMandate with originalMandateId and base IntentMandate fields', () => {
+    const client = new Ap2Client({ merchantId: 'merchant_test' });
+    const intent = client.createIntentMandate({ amount: '49.99', currency: 'USD' });
+
+    const refund = client.createRefundMandate({
+      originalMandateId: intent.mandateId,
+      amount:            '49.99',
+      currency:          'USD',
+      reason:            'customer changed mind',
+    });
+
+    expect(refund.originalMandateId).toBe(intent.mandateId);
+    expect(refund.reason).toBe('customer changed mind');
+    expect(refund.merchantId).toBe('merchant_test');
+    expect(refund.amount).toBe('49.99');
+    expect(refund.currency).toBe('USD');
+    expect(refund.mandateId).toMatch(/^ap2_/);
+    expect(refund.expiresAt).toBeGreaterThan(Date.now());
+  });
+
+  it('signs and submits like a regular mandate', async () => {
+    const client = new Ap2Client({ merchantId: 'merchant_test' });
+    const refund = client.createRefundMandate({
+      originalMandateId: 'ap2_original_xyz',
+      amount:            '10.00',
+      currency:          'USD',
+    });
+    const signed = await client.sign(refund);
+
+    expect(signed.signature).toMatch(/^mock_sig_/);
+    expect(signed.mandate.originalMandateId).toBe('ap2_original_xyz');
+  });
+
+  it('verifyMandateShape accepts a well-formed RefundMandate', async () => {
+    const client = new Ap2Client({ merchantId: 'merchant_test' });
+    const refund = client.createRefundMandate({
+      originalMandateId: 'ap2_original_xyz',
+      amount:            '10.00',
+      currency:          'USD',
+    });
+    const signed = await client.sign(refund);
+    expect(verifyMandateShape(signed).ok).toBe(true);
+  });
+
+  it('verifyMandateShape rejects RefundMandate with empty originalMandateId', async () => {
+    const client = new Ap2Client({ merchantId: 'merchant_test' });
+    const refund = client.createRefundMandate({
+      originalMandateId: 'ap2_original_xyz',
+      amount:            '10.00',
+      currency:          'USD',
+    });
+    const signed = await client.sign(refund);
+    (signed.mandate as { originalMandateId: string }).originalMandateId = '';
+    const result = verifyMandateShape(signed);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.reason).toMatch(/originalMandateId/);
+  });
+});

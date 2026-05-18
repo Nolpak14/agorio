@@ -49,6 +49,20 @@ export interface CartMandate extends IntentMandate {
   cartTotal: string;
 }
 
+/**
+ * RefundMandate — refund flow counterpart to IntentMandate. (v0.9)
+ *
+ * Issued by the buyer's agent (or the merchant's automated refund flow) to
+ * authorize money moving back to the buyer. Shares the IntentMandate base
+ * fields and adds the original mandate it refunds plus an optional reason.
+ */
+export interface RefundMandate extends IntentMandate {
+  /** mandateId of the original IntentMandate / CartMandate being refunded. */
+  originalMandateId: string;
+  /** Optional human-readable reason. */
+  reason?: string;
+}
+
 export interface SignedMandate<T extends IntentMandate = CartMandate> {
   mandate: T;
   /** Signature produced by the configured signer */
@@ -153,6 +167,32 @@ export class Ap2Client {
       currency: params.currency,
       expiresAt: now + this.mandateTtlMs,
       createdAt: new Date(now).toISOString(),
+    };
+  }
+
+  /**
+   * Create a RefundMandate that refunds an existing IntentMandate. (v0.9)
+   *
+   * Sign + submit the result with the same `sign()` / `submitPayment()` flow
+   * you use for IntentMandates — receivers can distinguish via
+   * `mandate.originalMandateId`.
+   */
+  createRefundMandate(params: {
+    originalMandateId: string;
+    amount:            string;
+    currency:          string;
+    reason?:           string;
+  }): RefundMandate {
+    const now = Date.now();
+    return {
+      mandateId:         generateMandateId(),
+      merchantId:        this.merchantId,
+      originalMandateId: params.originalMandateId,
+      amount:            params.amount,
+      currency:          params.currency,
+      reason:            params.reason,
+      expiresAt:         now + this.mandateTtlMs,
+      createdAt:         new Date(now).toISOString(),
     };
   }
 
@@ -307,6 +347,12 @@ export function verifyMandateShape(
     const cartTotal = parseFloat(String(mandate.cartTotal ?? amount)).toFixed(2);
     if (computed !== cartTotal) {
       return { ok: false, reason: `cartTotal ${cartTotal} does not match line items ${computed}` };
+    }
+  }
+  // RefundMandate-specific check (v0.9): originalMandateId must be a string.
+  if ('originalMandateId' in mandate && mandate.originalMandateId !== undefined) {
+    if (typeof mandate.originalMandateId !== 'string' || mandate.originalMandateId.length === 0) {
+      return { ok: false, reason: 'refund mandate.originalMandateId must be a non-empty string' };
     }
   }
   return { ok: true };

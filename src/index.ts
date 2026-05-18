@@ -58,6 +58,7 @@ export type {
   IntentMandate,
   CartMandate,
   CartLineItem,
+  RefundMandate,
   SignedMandate,
   Ap2PaymentResult,
 } from './client/ap2-client.js';
