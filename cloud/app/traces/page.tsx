@@ -3,15 +3,15 @@ import { redirect } from 'next/navigation';
 import { desc, eq } from 'drizzle-orm';
 import { db } from '@/db';
 import { traceRuns } from '@/db/schema';
-import { getCurrentCustomer } from '@/lib/customer';
+import { getCurrentOrgContext } from '@/lib/rbac';
 import CloudNavbar from '@/components/Navbar';
 import { formatDurationMs, formatNumber, relativeTime, truncate } from '@/lib/format';
 
 export const dynamic = 'force-dynamic';
 
 export default async function TracesListPage() {
-  const ctx = await getCurrentCustomer();
-  if (!ctx) redirect('/login');
+  const ctx = await getCurrentOrgContext();
+  if (!ctx) redirect('/auth/sign-in');
 
   if (!ctx.customer) {
     return (

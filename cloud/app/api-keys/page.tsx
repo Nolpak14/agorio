@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation';
 import { and, desc, eq, isNull } from 'drizzle-orm';
 import { db } from '@/db';
 import { apiKeys, type ApiKey } from '@/db/schema';
-import { getCurrentCustomer } from '@/lib/customer';
+import { getCurrentOrgContext, roleAtLeast } from '@/lib/rbac';
 import CloudNavbar from '@/components/Navbar';
 import CreateApiKeyForm from './CreateApiKeyForm';
 import { revokeApiKey } from './actions';
@@ -15,11 +15,12 @@ interface PageProps {
 }
 
 export default async function ApiKeysPage({ searchParams }: PageProps) {
-  const ctx = await getCurrentCustomer();
+  const ctx = await getCurrentOrgContext();
   if (!ctx) redirect('/auth/sign-in');
 
   const sp = await searchParams;
   const createdKey = typeof sp.created === 'string' ? sp.created : undefined;
+  const canManage  = roleAtLeast(ctx.role, 'admin');
 
   if (!ctx.customer) {
     return (
@@ -65,9 +66,15 @@ export default async function ApiKeysPage({ searchParams }: PageProps) {
 
         {createdKey && <RevealCard apiKey={createdKey} />}
 
-        <CreateApiKeyForm />
+        {canManage ? (
+          <CreateApiKeyForm />
+        ) : (
+          <p className="mb-6 text-xs text-[var(--muted)]">
+            Viewer access — ask an org admin to mint or revoke API keys.
+          </p>
+        )}
 
-        <ApiKeysList keys={keys} />
+        <ApiKeysList keys={keys} canManage={canManage} />
 
         <div className="mt-10 text-xs text-[var(--muted)] flex items-center gap-3">
           <span>License key + billing:</span>
@@ -99,7 +106,7 @@ function RevealCard({ apiKey }: { apiKey: string }) {
   );
 }
 
-function ApiKeysList({ keys }: { keys: ApiKey[] }) {
+function ApiKeysList({ keys, canManage }: { keys: ApiKey[]; canManage: boolean }) {
   if (keys.length === 0) {
     return <p className="text-sm text-[var(--muted)] mt-4">No active API keys yet.</p>;
   }
@@ -129,15 +136,19 @@ function ApiKeysList({ keys }: { keys: ApiKey[] }) {
                 {new Date(k.createdAt).toLocaleDateString()}
               </td>
               <td className="px-4 py-3 text-right">
-                <form action={revokeApiKey}>
-                  <input type="hidden" name="id" value={k.id} />
-                  <button
-                    type="submit"
-                    className="text-xs text-red-400 hover:text-red-300 transition-colors"
-                  >
-                    Revoke
-                  </button>
-                </form>
+                {canManage ? (
+                  <form action={revokeApiKey}>
+                    <input type="hidden" name="id" value={k.id} />
+                    <button
+                      type="submit"
+                      className="text-xs text-red-400 hover:text-red-300 transition-colors"
+                    >
+                      Revoke
+                    </button>
+                  </form>
+                ) : (
+                  <span className="text-xs text-[var(--muted)]">—</span>
+                )}
               </td>
             </tr>
           ))}

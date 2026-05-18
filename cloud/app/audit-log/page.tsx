@@ -3,14 +3,14 @@ import { redirect } from 'next/navigation';
 import { desc, eq } from 'drizzle-orm';
 import { db } from '@/db';
 import { cloudAuditLog, type CloudAuditEntry } from '@/db/schema';
-import { getCurrentCustomer } from '@/lib/customer';
+import { getCurrentOrgContext } from '@/lib/rbac';
 import CloudNavbar from '@/components/Navbar';
 import { relativeTime } from '@/lib/format';
 
 export const dynamic = 'force-dynamic';
 
 export default async function AuditLogPage() {
-  const ctx = await getCurrentCustomer();
+  const ctx = await getCurrentOrgContext();
   if (!ctx) redirect('/auth/sign-in');
 
   if (!ctx.customer) {

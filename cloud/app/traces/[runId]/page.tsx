@@ -3,7 +3,7 @@ import { notFound, redirect } from 'next/navigation';
 import { asc, eq } from 'drizzle-orm';
 import { db } from '@/db';
 import { traceRuns, traceSpans, traceLogs } from '@/db/schema';
-import { getCurrentCustomer } from '@/lib/customer';
+import { getCurrentOrgContext } from '@/lib/rbac';
 import CloudNavbar from '@/components/Navbar';
 import { formatDurationMs, formatNumber, relativeTime } from '@/lib/format';
 import TraceAutoRefresh from './TraceAutoRefresh';
@@ -17,8 +17,8 @@ interface PageProps {
 export default async function TraceDetailPage({ params }: PageProps) {
   const { runId } = await params;
 
-  const ctx = await getCurrentCustomer();
-  if (!ctx) redirect('/login');
+  const ctx = await getCurrentOrgContext();
+  if (!ctx) redirect('/auth/sign-in');
   if (!ctx.customer) redirect('/traces');
 
   const [run] = await db.select().from(traceRuns).where(eq(traceRuns.id, runId)).limit(1);
