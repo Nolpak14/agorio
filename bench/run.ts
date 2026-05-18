@@ -129,11 +129,11 @@ const scenarios: Scenario[] = [
     setup: async () => {
       const merchant = await makeMerchant();
       const client = new UcpClient();
-      const discovery = await client.discover(merchant.domain);
+      await client.discover(merchant.domain);
       return {
         async run() {
           const t0 = performance.now();
-          await client.searchProducts(discovery.profile, 'wireless headphones', 10);
+          await client.callApi('/products/search?q=wireless%20headphones&limit=10');
           return performance.now() - t0;
         },
         async teardown() {

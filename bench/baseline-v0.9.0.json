@@ -1,0 +1,19 @@
+{
+  "_note": "Reference baseline captured on Windows 10 / Ryzen-class hardware against MockMerchant on localhost. Numbers are not directly comparable to baseline-v0.8.0.json (M3 MacBook Pro) — for the v1.0.0 final baseline, re-run on M3 reference hardware at the v1.0.0-rc.1 tag. The harness measures SDK overhead via a stubbed LLM adapter; it is a sanity check, not an SLA.",
+  "sdkVersion": "0.9.0",
+  "commit": "c9cb9fa",
+  "timestamp": "2026-05-18T06:06:53.152Z",
+  "warmup": 5,
+  "iterations": 50,
+  "scenarios": {
+    "ucp-discovery":    { "p50_ms": 12.09, "p95_ms": 18.71, "p99_ms": 21.90, "mean_ms": 12.68 },
+    "product-search":   { "p50_ms":  1.55, "p95_ms":  4.47, "p99_ms":  8.25, "mean_ms":  2.07 },
+    "single-tool-call": { "p50_ms":  0.06, "p95_ms":  0.24, "p99_ms":  0.28, "mean_ms":  0.09 },
+    "full-checkout":    { "p50_ms":  0.37, "p95_ms":  0.63, "p99_ms":  8.22, "mean_ms":  0.50 }
+  },
+  "tokensPerTask": {
+    "_note": "Synthetic — derived from the stub LLM's char/4 token approximation; reflects SDK message-building overhead, not real provider usage.",
+    "single-tool-call": 180,
+    "full-checkout": 540
+  }
+}
