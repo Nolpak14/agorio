@@ -2,8 +2,9 @@
  * Tests for MCP transport - JSON-RPC client, UcpClient MCP detection, and agent integration
  */
 
+import type { Server } from 'node:http';
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { McpClient, McpError } from '../src/client/mcp-client.js';
+import { McpClient, McpError, MCP_PROTOCOL_VERSION } from '../src/client/mcp-client.js';
 import { UcpClient } from '../src/client/ucp-client.js';
 import { ShoppingAgent } from '../src/agent/shopping-agent.js';
 import { MockMcpMerchant } from '../src/mock/mock-mcp-merchant.js';
@@ -476,5 +477,259 @@ describe('ShoppingAgent with MCP merchant', () => {
     expect(result.checkout).toBeDefined();
     expect(result.checkout!.status).toBe('completed');
     expect(result.checkout!.orderId).toBeDefined();
+  });
+});
+
+// ─── Arbitrary MCP server (spec methods) ───
+// Talks to an inline test server that implements the MCP spec methods:
+// initialize, tools/list, tools/call, resources/*, prompts/*. This is the
+// "non-commerce" surface — what users need to integrate with GitHub MCP,
+// Filesystem MCP, custom internal MCP servers, etc.
+
+interface SpecServer {
+  url:           string;
+  stop:          () => Promise<void>;
+  notifications: Array<{ method: string; params?: unknown }>;
+}
+
+async function startSpecServer(): Promise<SpecServer> {
+  const { default: express } = await import('express');
+  const app = express();
+  app.use(express.json());
+
+  const notifications: Array<{ method: string; params?: unknown }> = [];
+
+  app.post('/mcp', (req, res) => {
+    const { id, method, params } = req.body as {
+      id?:     number;
+      method:  string;
+      params?: Record<string, unknown>;
+    };
+
+    if (id === undefined) {
+      notifications.push({ method, params });
+      res.status(204).end();
+      return;
+    }
+
+    const reply = (result: unknown) =>
+      res.json({ jsonrpc: '2.0', id, result });
+    const replyError = (code: number, message: string) =>
+      res.json({ jsonrpc: '2.0', id, error: { code, message } });
+
+    switch (method) {
+      case 'initialize':
+        reply({
+          protocolVersion: (params?.protocolVersion as string) ?? MCP_PROTOCOL_VERSION,
+          serverInfo:      { name: 'test-mcp-server', version: '0.1.0' },
+          capabilities:    {
+            tools:     { listChanged: false },
+            resources: { subscribe: false, listChanged: false },
+            prompts:   { listChanged: false },
+          },
+          instructions: 'Test MCP server for agorio spec compliance.',
+        });
+        return;
+
+      case 'tools/list':
+        reply({
+          tools: [
+            {
+              name:        'echo',
+              description: 'Echoes input back as text.',
+              inputSchema: {
+                type:       'object',
+                properties: { text: { type: 'string' } },
+                required:   ['text'],
+              },
+            },
+            {
+              name:        'fail',
+              description: 'Always returns an error result.',
+              inputSchema: { type: 'object', properties: {} },
+            },
+          ],
+        });
+        return;
+
+      case 'tools/call': {
+        const name = params?.name as string | undefined;
+        const args = (params?.arguments as Record<string, unknown> | undefined) ?? {};
+        if (name === 'fail') {
+          reply({
+            content: [{ type: 'text', text: 'Tool failed as expected.' }],
+            isError: true,
+          });
+          return;
+        }
+        if (name === 'echo') {
+          reply({
+            content: [{ type: 'text', text: String(args.text ?? '') }],
+          });
+          return;
+        }
+        replyError(-32601, `Unknown tool: ${name}`);
+        return;
+      }
+
+      case 'resources/list':
+        reply({
+          resources: [
+            { uri: 'file:///readme.md',   name: 'README', mimeType: 'text/markdown' },
+            { uri: 'file:///config.json', name: 'Config', mimeType: 'application/json' },
+          ],
+        });
+        return;
+
+      case 'resources/read': {
+        const uri = params?.uri as string | undefined;
+        if (uri === 'file:///readme.md') {
+          reply({
+            contents: [{ uri, mimeType: 'text/markdown', text: '# README\n\nHello.' }],
+          });
+          return;
+        }
+        replyError(-32602, `Resource not found: ${uri}`);
+        return;
+      }
+
+      case 'prompts/list':
+        reply({
+          prompts: [
+            {
+              name:        'greet',
+              description: 'Greets a user by name.',
+              arguments:   [{ name: 'name', required: true }],
+            },
+          ],
+        });
+        return;
+
+      case 'prompts/get': {
+        const name = params?.name as string | undefined;
+        const args = (params?.arguments as Record<string, string> | undefined) ?? {};
+        if (name === 'greet') {
+          reply({
+            description: 'Greets a user by name.',
+            messages: [
+              {
+                role:    'user',
+                content: { type: 'text', text: `Say hello to ${args.name ?? 'friend'}.` },
+              },
+            ],
+          });
+          return;
+        }
+        replyError(-32601, `Unknown prompt: ${name}`);
+        return;
+      }
+
+      default:
+        replyError(-32601, `Method not found: ${method}`);
+    }
+  });
+
+  return await new Promise<SpecServer>((resolve) => {
+    const server: Server = app.listen(0, () => {
+      const addr = server.address();
+      const port = typeof addr === 'object' && addr ? addr.port : 0;
+      resolve({
+        url:  `http://127.0.0.1:${port}/mcp`,
+        stop: () => new Promise<void>((r) => server.close(() => r())),
+        notifications,
+      });
+    });
+  });
+}
+
+describe('McpClient — arbitrary MCP server (spec methods)', () => {
+  let server: SpecServer;
+
+  beforeAll(async () => {
+    server = await startSpecServer();
+  });
+
+  afterAll(async () => {
+    await server.stop();
+  });
+
+  it('initialize() returns protocolVersion + serverInfo + capabilities', async () => {
+    const client = new McpClient({ endpoint: server.url });
+    const result = await client.initialize();
+    expect(result.protocolVersion).toBe(MCP_PROTOCOL_VERSION);
+    expect(result.serverInfo.name).toBe('test-mcp-server');
+    expect(result.capabilities.tools).toBeDefined();
+  });
+
+  it('initialize() accepts a custom clientInfo + protocolVersion', async () => {
+    const client = new McpClient({ endpoint: server.url });
+    const result = await client.initialize({
+      clientInfo:      { name: 'my-app', version: '1.2.3' },
+      protocolVersion: '2025-03-26',
+    });
+    expect(result.protocolVersion).toBe('2025-03-26');
+  });
+
+  it('notifyInitialized() sends a notification (no response body)', async () => {
+    const client = new McpClient({ endpoint: server.url });
+    const before = server.notifications.length;
+    await client.notifyInitialized();
+    expect(server.notifications.length).toBe(before + 1);
+    expect(server.notifications[before].method).toBe('notifications/initialized');
+  });
+
+  it('listTools() returns the server tool catalog', async () => {
+    const client = new McpClient({ endpoint: server.url });
+    const { tools } = await client.listTools();
+    expect(tools.map(t => t.name)).toContain('echo');
+    expect(tools.find(t => t.name === 'echo')?.inputSchema).toMatchObject({ type: 'object' });
+  });
+
+  it('callTool() invokes a tool and returns content blocks', async () => {
+    const client = new McpClient({ endpoint: server.url });
+    const result = await client.callTool('echo', { text: 'hello mcp' });
+    expect(result.isError).toBeFalsy();
+    expect(result.content[0]).toEqual({ type: 'text', text: 'hello mcp' });
+  });
+
+  it('callTool() surfaces tool errors via isError flag, not exceptions', async () => {
+    const client = new McpClient({ endpoint: server.url });
+    const result = await client.callTool('fail');
+    expect(result.isError).toBe(true);
+    expect(result.content[0]).toMatchObject({ type: 'text' });
+  });
+
+  it('callTool() rejects with McpError on unknown tool', async () => {
+    const client = new McpClient({ endpoint: server.url });
+    await expect(client.callTool('does-not-exist')).rejects.toThrow(McpError);
+  });
+
+  it('listResources() returns resources with URIs and metadata', async () => {
+    const client = new McpClient({ endpoint: server.url });
+    const { resources } = await client.listResources();
+    expect(resources.length).toBe(2);
+    expect(resources[0].uri).toMatch(/^file:/);
+  });
+
+  it('readResource() returns content array for a known URI', async () => {
+    const client = new McpClient({ endpoint: server.url });
+    const result = await client.readResource('file:///readme.md');
+    expect(result.contents[0].text).toContain('README');
+  });
+
+  it('listPrompts() returns prompt definitions with arguments', async () => {
+    const client = new McpClient({ endpoint: server.url });
+    const { prompts } = await client.listPrompts();
+    expect(prompts[0].name).toBe('greet');
+    expect(prompts[0].arguments?.[0].required).toBe(true);
+  });
+
+  it('getPrompt() materializes a prompt with template args', async () => {
+    const client = new McpClient({ endpoint: server.url });
+    const result = await client.getPrompt('greet', { name: 'Ada' });
+    expect(result.messages[0].content).toEqual({
+      type: 'text',
+      text: 'Say hello to Ada.',
+    });
   });
 });

@@ -33,7 +33,25 @@
 // Core clients
 export { UcpClient, UcpDiscoveryError, UcpApiError } from './client/ucp-client.js';
 export { AcpClient, AcpApiError } from './client/acp-client.js';
-export { McpClient, McpError } from './client/mcp-client.js';
+export { McpClient, McpError, MCP_PROTOCOL_VERSION } from './client/mcp-client.js';
+export type {
+  McpClientInfo,
+  McpServerInfo,
+  McpServerCapabilities,
+  McpInitializeResult,
+  McpToolDescriptor,
+  McpToolListResult,
+  McpContentBlock,
+  McpToolCallResult,
+  McpResource,
+  McpResourceListResult,
+  McpResourceReadResult,
+  McpPrompt,
+  McpPromptArgument,
+  McpPromptListResult,
+  McpPromptMessage,
+  McpPromptGetResult,
+} from './client/mcp-client.js';
 export { Ap2Client, Ap2Error, verifyMandateShape } from './client/ap2-client.js';
 export type {
   Ap2ClientOptions,
