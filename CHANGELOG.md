@@ -7,6 +7,20 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [0.9.0] — Unreleased — SDK GA Polish
+
+First release of the v1.0.0 GA program. Locks the public API surface so the 90-day no-breaking-changes clock can start cleanly at v1.0.0-rc.1. See [`docs/v1.0-plan.md`](docs/v1.0-plan.md) and tracks [issue #39](https://github.com/Nolpak14/agorio/issues/39).
+
+### Removed
+
+- **`AgentOptions.experimental_ap2`** — deprecated in v0.8, removed in v0.9 per the [versioning policy](docs/semver.md). Use `AgentOptions.ap2` instead. See [`docs/migration-0.x-to-1.0.md`](docs/migration-0.x-to-1.0.md) for the one-line edit.
+
+### Breaking changes
+
+- Setting `experimental_ap2: true` is now a TypeScript error. The runtime never used the field as a fallback (only `ap2` was read), so callers that already migrated to `ap2` in v0.8 are unaffected.
+
+---
+
 ## [0.8.0] — Unreleased — Compliance & Hardening
 
 EU AI Act enforcement begins **2 August 2026**. This release ships the compliance artifacts and security hardening enterprise buyers require. See [`docs/v0.8-plan.md`](docs/v0.8-plan.md) and tracks [issue #38](https://github.com/Nolpak14/agorio/issues/38).

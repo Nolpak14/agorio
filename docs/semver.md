@@ -53,8 +53,8 @@ A symbol marked `@deprecated` in TSDoc will:
 2. Log a one-time `console.warn` the first time it is used in a process.
 3. Be removed only in the next major bump.
 
-Example: `experimental_ap2` was deprecated in v0.8 in favor of `ap2`. Both flags are honored
-through v0.x; the old name will be removed in v1.0 per this policy.
+Example: `experimental_ap2` was deprecated in v0.8 in favor of `ap2` and removed in v0.9 — the
+mandatory one-minor-version runway between deprecation and removal that this policy requires.
 
 ## LTS lines
 

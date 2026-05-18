@@ -505,11 +505,6 @@ export interface AgentOptions {
    * and a payment endpoint that the SDK cannot infer from merchant discovery.
    */
   ap2?: boolean;
-  /**
-   * @deprecated Use `ap2` instead. The flag was renamed in v0.8 when AP2 reached GA;
-   * `experimental_ap2` is honored for one major-version window for backwards compatibility.
-   */
-  experimental_ap2?: boolean;
   /** Persistent session storage — enables resume across process restarts. */
   sessionStorage?: SessionStorage;
   /** Session ID — if a snapshot exists for this ID, the agent resumes from it. */
