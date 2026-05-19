@@ -6,7 +6,7 @@ import { Providers } from '@/components/Providers';
 import PostHogIdentify from '@/components/PostHogIdentify';
 import './globals.css';
 
-const GA_ID = process.env.NEXT_PUBLIC_GA_ID_SITE;
+const GA_ID = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID;
 
 export const metadata: Metadata = {
   title: 'Agorio — The Open-Source AI Commerce Agent Toolkit',
