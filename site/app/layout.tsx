@@ -1,9 +1,12 @@
 import type { Metadata } from 'next';
 import { Suspense } from 'react';
+import { GoogleAnalytics } from '@next/third-parties/google';
 import Navbar from '@/components/Navbar';
 import { Providers } from '@/components/Providers';
 import PostHogIdentify from '@/components/PostHogIdentify';
 import './globals.css';
+
+const GA_ID = process.env.NEXT_PUBLIC_GA_ID_SITE;
 
 export const metadata: Metadata = {
   title: 'Agorio — The Open-Source AI Commerce Agent Toolkit',
@@ -49,6 +52,7 @@ export default function RootLayout({
           <Navbar />
           {children}
         </Providers>
+        {GA_ID ? <GoogleAnalytics gaId={GA_ID} /> : null}
       </body>
     </html>
   );

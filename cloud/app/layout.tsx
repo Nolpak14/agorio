@@ -1,8 +1,11 @@
 import type { Metadata } from 'next';
 import { Suspense } from 'react';
+import { GoogleAnalytics } from '@next/third-parties/google';
 import { Providers } from '@/components/Providers';
 import PostHogIdentify from '@/components/PostHogIdentify';
 import './globals.css';
+
+const GA_ID = process.env.NEXT_PUBLIC_GA_ID_CLOUD;
 
 export const metadata: Metadata = {
   title: 'Agorio Cloud',
@@ -30,6 +33,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           </Suspense>
           {children}
         </Providers>
+        {GA_ID ? <GoogleAnalytics gaId={GA_ID} /> : null}
       </body>
     </html>
   );
